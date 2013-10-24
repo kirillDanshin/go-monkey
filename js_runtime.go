@@ -30,9 +30,6 @@ type Runtime struct {
 func printCall(argv []*Value, newline bool) bool {
 	for i := 0; i < len(argv); i++ {
 		print(argv[i].ToString())
-		if i < len(argv)-1 {
-			print(", ")
-		}
 	}
 	if newline {
 		println()
