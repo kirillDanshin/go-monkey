@@ -10,37 +10,37 @@ func assert(c bool) bool {
 }
 
 func main() {
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
-	// Return Array From JavaScript
+	// Return an array from JavaScript
 	if value, ok := runtime.Eval("[123, 456];"); assert(ok) {
-		// Type Check
+		// Type check
 		assert(value.IsArray())
 		array := value.Array()
 		assert(array != nil)
 
-		// Length Check
+		// Length check
 		length, ok := array.GetLength()
 		assert(ok)
 		assert(length == 2)
 
-		// Get First Item
+		// Get first item
 		value1, ok1 := array.GetElement(0)
 		assert(ok1)
 		assert(value1.IsInt())
 		assert(value1.Int() == 123)
 
-		// Get Second Item
+		// Get second item
 		value2, ok2 := array.GetElement(1)
 		assert(ok2)
 		assert(value2.IsInt())
 		assert(value2.Int() == 456)
 
-		// Set First Item
+		// Set first item
 		assert(array.SetElement(0, runtime.Int(789)))
 		value3, ok3 := array.GetElement(0)
 		assert(ok3)
@@ -53,7 +53,7 @@ func main() {
 		assert(length2 == 3)
 	}
 
-	// Return Array From Go
+	// Return an array from Go
 	if ok := runtime.DefineFunction("get_data",
 		func(argv []*js.Value) (*js.Value, bool) {
 			array := runtime.NewArray()
@@ -63,29 +63,27 @@ func main() {
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval("get_data()"); assert(ok) {
-			// Type Check
+			// Type check
 			assert(value.IsArray())
 			array := value.Array()
 			assert(array != nil)
 
-			// Length Check
+			// Length check
 			length, ok := array.GetLength()
 			assert(ok)
 			assert(length == 2)
 
-			// Get First Item
+			// Get first item
 			value1, ok1 := array.GetElement(0)
 			assert(ok1)
 			assert(value1.IsInt())
 			assert(value1.Int() == 100)
 
-			// Get Second Item
+			// Get second item
 			value2, ok2 := array.GetElement(1)
 			assert(ok2)
 			assert(value2.IsInt())
 			assert(value2.Int() == 200)
 		}
 	}
-
-	runtime.Dispose()
 }

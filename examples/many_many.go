@@ -14,7 +14,7 @@ func assert(c bool) bool {
 func main() {
 	runtime.GOMAXPROCS(20)
 
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
@@ -22,7 +22,7 @@ func main() {
 
 	wg := new(sync.WaitGroup)
 
-	// One Runtime Instance Used By Many Goroutines
+	// One runtime instance used by many goroutines
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
@@ -35,7 +35,4 @@ func main() {
 	}
 
 	wg.Wait()
-
-	// Say Good Bye
-	runtime.Dispose()
 }

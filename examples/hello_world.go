@@ -4,21 +4,21 @@ import "fmt"
 import js "github.com/realint/monkey"
 
 func main() {
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
-	// Evaluate Script
+	// Evaluate script
 	if value, ok := runtime.Eval("'Hello ' + 'World!'"); ok {
 		println(value.ToString())
 	}
 
-	// Built-in Function
+	// Call built-in function
 	runtime.Eval("println('Hello Built-in Function!')")
 
-	// Compile Once, Run Many Times
+	// Compile once, run many times
 	if script := runtime.Compile(
 		"println('Hello Compiler!')",
 		"<no name>", 0,
@@ -28,7 +28,7 @@ func main() {
 		script.Execute()
 	}
 
-	// Define Function
+	// Define a function
 	if runtime.DefineFunction("add",
 		func(argv []*js.Value) (*js.Value, bool) {
 			if len(argv) != 2 {
@@ -37,12 +37,13 @@ func main() {
 			return runtime.Int(argv[0].Int() + argv[1].Int()), true
 		},
 	) {
+		// Call the function
 		if value, ok := runtime.Eval("add(100, 200)"); ok {
 			println(value.Int())
 		}
 	}
 
-	// Error Handle
+	// Error handler
 	runtime.SetErrorReporter(func(report *js.ErrorReport) {
 		println(fmt.Sprintf(
 			"%s:%d: %s",
@@ -53,9 +54,6 @@ func main() {
 		}
 	})
 
-	// Trigger An Error
+	// Trigger an error
 	runtime.Eval("abc()")
-
-	// Say Good Bye
-	runtime.Dispose()
 }

@@ -33,6 +33,4 @@ func main() {
 		assert(value.IsNumber())
 		assert(value.Number() == 12345.6789)
 	}
-
-	runtime.Dispose()
 }

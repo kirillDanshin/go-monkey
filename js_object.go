@@ -8,6 +8,10 @@ package monkey
 
 extern JSPropertyOp       the_go_getter_callback;
 extern JSStrictPropertyOp the_go_setter_callback;
+extern JSNative           the_go_obj_func_callback;
+
+extern void _JS_SET_RVAL(JSContext *cx, jsval* vp, jsval v);
+extern jsval JS_GET_ARGV(JSContext *cx, jsval* vp, int n);
 */
 import "C"
 import (
@@ -19,6 +23,7 @@ import (
 type Object struct {
 	rt      *Runtime
 	obj     *C.JSObject
+	funcs   map[string]JsFunc
 	getters map[string]JsPropertyGetter
 	setters map[string]JsPropertySetter
 }
@@ -26,7 +31,7 @@ type Object struct {
 // Add the JSObject to the garbage collector's root set.
 // See: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/JSAPI_reference/JS_AddRoot
 func newObject(rt *Runtime, obj *C.JSObject) *Object {
-	result := &Object{rt, obj, nil, nil}
+	result := &Object{rt, obj, nil, nil, nil}
 
 	C.JS_AddObjectRoot(rt.cx, &result.obj)
 
@@ -145,4 +150,47 @@ func (o *Object) DefineProperty(name string, value *Value, getter JsPropertyGett
 	}
 
 	return false
+}
+
+//export call_go_obj_func
+func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.JSBool {
+	var o = (*Object)(op)
+
+	var argv = make([]*Value, int(argc))
+
+	for i := 0; i < len(argv); i++ {
+		argv[i] = newValue(o.rt, C.JS_GET_ARGV(o.rt.cx, vp, C.int(i)))
+	}
+
+	var result, ok = o.funcs[C.GoString(name)](argv)
+
+	if ok {
+		C._JS_SET_RVAL(o.rt.cx, vp, result.val)
+		return C.JS_TRUE
+	}
+
+	return C.JS_FALSE
+}
+
+// Define a function into object
+// @name     The function name
+// @callback The function implement
+func (o *Object) DefineFunction(name string, callback JsFunc) bool {
+	o.rt.lock()
+	defer o.rt.unlock()
+
+	cname := C.CString(name)
+	defer C.free(unsafe.Pointer(cname))
+
+	if C.JS_DefineFunction(o.rt.cx, o.obj, cname, C.the_go_obj_func_callback, 0, 0) == nil {
+		return false
+	}
+
+	if o.funcs == nil {
+		o.funcs = make(map[string]JsFunc)
+	}
+
+	o.funcs[name] = callback
+
+	return true
 }

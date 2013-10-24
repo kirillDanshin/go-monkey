@@ -68,21 +68,21 @@ import "fmt"
 import js "github.com/realint/monkey"
 
 func main() {
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
-	// Evaluate Script
+	// Evaluate script
 	if value, ok := runtime.Eval("'Hello ' + 'World!'"); ok {
 		println(value.ToString())
 	}
 
-	// Built-in Function
+	// Call built-in function
 	runtime.Eval("println('Hello Built-in Function!')")
 
-	// Compile Once, Run Many Times
+	// Compile once, run many times
 	if script := runtime.Compile(
 		"println('Hello Compiler!')",
 		"<no name>", 0,
@@ -92,21 +92,22 @@ func main() {
 		script.Execute()
 	}
 
-	// Define Function
+	// Define a function
 	if runtime.DefineFunction("add",
-		func(argv []js.Value) (js.Value, bool) {
+		func(argv []*js.Value) (*js.Value, bool) {
 			if len(argv) != 2 {
 				return runtime.Null(), false
 			}
 			return runtime.Int(argv[0].Int() + argv[1].Int()), true
 		},
 	) {
+		// Call the function
 		if value, ok := runtime.Eval("add(100, 200)"); ok {
 			println(value.Int())
 		}
 	}
 
-	// Error Handle
+	// Error handler
 	runtime.SetErrorReporter(func(report *js.ErrorReport) {
 		println(fmt.Sprintf(
 			"%s:%d: %s",
@@ -117,11 +118,8 @@ func main() {
 		}
 	})
 
-	// Trigger An Error
+	// Trigger an error
 	runtime.Eval("abc()")
-
-	// Say Good Bye
-	runtime.Dispose()
 }
 ```
 This code will output:
@@ -177,8 +175,6 @@ func main() {
 		assert(value.IsNumber())
 		assert(value.Number() == 12345.6789)
 	}
-
-	runtime.Dispose()
 }
 ```
 
@@ -200,30 +196,51 @@ func assert(c bool) bool {
 }
 
 func main() {
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
-	// Function
+	// Return a function object from JavaScript
 	if value, ok := runtime.Eval("function(a,b){ return a+b; }"); assert(ok) {
-		// Type Check
+		// Type check
 		assert(value.IsFunction())
 
 		// Call
-		value1, ok1 := value.Call([]js.Value{
+		value1, ok1 := value.Call([]*js.Value{
 			runtime.Int(10),
 			runtime.Int(20),
 		})
 
-		// Result Check
+		// Result check
 		assert(ok1)
 		assert(value1.IsNumber())
 		assert(value1.Int() == 30)
 	}
 
-	runtime.Dispose()
+	// Define a function that return an object with function from Go
+	if ok := runtime.DefineFunction("get_data",
+		func(argv []*js.Value) (*js.Value, bool) {
+			obj := runtime.NewObject()
+
+			ok := obj.DefineFunction("abc", func(argv []*js.Value) (*js.Value, bool) {
+				return runtime.Int(100), true
+			})
+
+			assert(ok)
+
+			return obj.ToValue(), true
+		},
+	); assert(ok) {
+		if value, ok := runtime.Eval(`
+			a = get_data(); 
+			a.abc();
+		`); assert(ok) {
+			assert(value.IsInt())
+			assert(value.Int() == 100)
+		}
+	}
 }
 ```
 
@@ -245,37 +262,37 @@ func assert(c bool) bool {
 }
 
 func main() {
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
-	// Return Array From JavaScript
+	// Return an array from JavaScript
 	if value, ok := runtime.Eval("[123, 456];"); assert(ok) {
-		// Type Check
+		// Type check
 		assert(value.IsArray())
 		array := value.Array()
 		assert(array != nil)
 
-		// Length Check
+		// Length check
 		length, ok := array.GetLength()
 		assert(ok)
 		assert(length == 2)
 
-		// Get First Item
+		// Get first item
 		value1, ok1 := array.GetElement(0)
 		assert(ok1)
 		assert(value1.IsInt())
 		assert(value1.Int() == 123)
 
-		// Get Second Item
+		// Get second item
 		value2, ok2 := array.GetElement(1)
 		assert(ok2)
 		assert(value2.IsInt())
 		assert(value2.Int() == 456)
 
-		// Set First Item
+		// Set first item
 		assert(array.SetElement(0, runtime.Int(789)))
 		value3, ok3 := array.GetElement(0)
 		assert(ok3)
@@ -288,7 +305,7 @@ func main() {
 		assert(length2 == 3)
 	}
 
-	// Return Array From Go
+	// Return an array from Go
 	if ok := runtime.DefineFunction("get_data",
 		func(argv []*js.Value) (*js.Value, bool) {
 			array := runtime.NewArray()
@@ -298,31 +315,29 @@ func main() {
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval("get_data()"); assert(ok) {
-			// Type Check
+			// Type check
 			assert(value.IsArray())
 			array := value.Array()
 			assert(array != nil)
 
-			// Length Check
+			// Length check
 			length, ok := array.GetLength()
 			assert(ok)
 			assert(length == 2)
 
-			// Get First Item
+			// Get first item
 			value1, ok1 := array.GetElement(0)
 			assert(ok1)
 			assert(value1.IsInt())
 			assert(value1.Int() == 100)
 
-			// Get Second Item
+			// Get second item
 			value2, ok2 := array.GetElement(1)
 			assert(ok2)
 			assert(value2.IsInt())
 			assert(value2.Int() == 200)
 		}
 	}
-
-	runtime.Dispose()
 }
 ```
 
@@ -344,25 +359,25 @@ func assert(c bool) bool {
 }
 
 func main() {
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
-	// Return Object From JavaScript
+	// Return an object from JavaScript
 	if value, ok := runtime.Eval("x={a:123}"); assert(ok) {
-		// Type Check
+		// Type check
 		assert(value.IsObject())
 		obj := value.Object()
 
-		// Get Property
+		// Get property 'a'
 		value1, ok1 := obj.GetProperty("a")
 		assert(ok1)
 		assert(value1.IsInt())
 		assert(value1.Int() == 123)
 
-		// Set Property
+		// Set property 'b'
 		assert(obj.SetProperty("b", runtime.Int(456)))
 		value2, ok2 := obj.GetProperty("b")
 		assert(ok2)
@@ -370,7 +385,7 @@ func main() {
 		assert(value2.Int() == 456)
 	}
 
-	// Return Object From Go
+	// Return and object From Go
 	if ok := runtime.DefineFunction("get_data",
 		func(argv []*js.Value) (*js.Value, bool) {
 			obj := runtime.NewObject()
@@ -380,27 +395,28 @@ func main() {
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval("get_data()"); assert(ok) {
-			// Type Check
+			// Type check
 			assert(value.IsObject())
 			obj := value.Object()
 
-			// Get Property 'abc'
+			// Get property 'abc'
 			value1, ok1 := obj.GetProperty("abc")
 			assert(ok1)
 			assert(value1.IsInt())
 			assert(value1.Int() == 100)
 
-			// Get Property 'def'
+			// Get property 'def'
 			value2, ok2 := obj.GetProperty("def")
 			assert(ok2)
 			assert(value2.IsInt())
 			assert(value2.Int() == 200)
 		}
 	}
-
-	runtime.Dispose()
 }
 ```
+
+Property
+--------
 
 The "op_prop.go" shows how to handle JavaScript object's property in Go.
 
@@ -433,6 +449,7 @@ func main() {
 					return runtime.Int(100), true
 				},
 				func(o *js.Object, val *js.Value) bool {
+					// must set 200.
 					assert(val.IsInt())
 					assert(val.Int() == 200)
 					return true
@@ -446,7 +463,8 @@ func main() {
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval(`
-			a = get_data(); 
+			a = get_data();
+			// must set 200, look at the code above.
 			a.abc = 200;
 			a.abc;
 		`); assert(ok) {
@@ -454,8 +472,6 @@ func main() {
 			assert(value.Int() == 100)
 		}
 	}
-
-	runtime.Dispose()
 }
 ```
 
@@ -481,7 +497,7 @@ func assert(c bool) bool {
 func main() {
 	runtime.GOMAXPROCS(20)
 
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
@@ -489,7 +505,7 @@ func main() {
 
 	wg := new(sync.WaitGroup)
 
-	// One Runtime Instance Used By Many Goroutines
+	// One runtime instance used by many goroutines
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
@@ -502,8 +518,5 @@ func main() {
 	}
 
 	wg.Wait()
-
-	// Say Good Bye
-	runtime.Dispose()
 }
 ```

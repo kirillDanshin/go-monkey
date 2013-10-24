@@ -10,15 +10,15 @@ func assert(c bool) bool {
 }
 
 func main() {
-	// Create Script Runtime
+	// Create script runtime
 	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
-	// Function
+	// Return a function object from JavaScript
 	if value, ok := runtime.Eval("function(a,b){ return a+b; }"); assert(ok) {
-		// Type Check
+		// Type check
 		assert(value.IsFunction())
 
 		// Call
@@ -27,11 +27,32 @@ func main() {
 			runtime.Int(20),
 		})
 
-		// Result Check
+		// Result check
 		assert(ok1)
 		assert(value1.IsNumber())
 		assert(value1.Int() == 30)
 	}
 
-	runtime.Dispose()
+	// Define a function that return an object with function from Go
+	if ok := runtime.DefineFunction("get_data",
+		func(argv []*js.Value) (*js.Value, bool) {
+			obj := runtime.NewObject()
+
+			ok := obj.DefineFunction("abc", func(argv []*js.Value) (*js.Value, bool) {
+				return runtime.Int(100), true
+			})
+
+			assert(ok)
+
+			return obj.ToValue(), true
+		},
+	); assert(ok) {
+		if value, ok := runtime.Eval(`
+			a = get_data(); 
+			a.abc();
+		`); assert(ok) {
+			assert(value.IsInt())
+			assert(value.Int() == 100)
+		}
+	}
 }

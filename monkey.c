@@ -9,7 +9,7 @@ JSClass global_class = {
     JSCLASS_NO_OPTIONAL_MEMBERS
 };
 
-/* The go function callback. */
+/* The function callback. */
 JSBool go_func_callback(JSContext *cx, uintN argc, jsval *vp) {
 	JSObject *callee = JSVAL_TO_OBJECT(JS_CALLEE(cx, vp));
 
@@ -19,6 +19,22 @@ JSBool go_func_callback(JSContext *cx, uintN argc, jsval *vp) {
 	char* cname = JS_EncodeString(cx, JS_ValueToString(cx, name));
 
 	JSBool result = call_go_func(JS_GetRuntimePrivate(JS_GetRuntime(cx)), cname, argc, vp);
+
+	JS_free(cx, (void*)cname);
+
+	return result;
+}
+
+/* The object function callback. */
+JSBool go_obj_func_callback(JSContext *cx, uintN argc, jsval *vp) {
+	JSObject *callee = JSVAL_TO_OBJECT(JS_CALLEE(cx, vp));
+
+	jsval name;
+	JS_GetProperty(cx, callee, "name", &name);
+
+	char* cname = JS_EncodeString(cx, JS_ValueToString(cx, name));
+
+	JSBool result = call_go_obj_func(JS_GetPrivate(cx, JS_THIS_OBJECT(cx, vp)), cname, argc, vp);
 
 	JS_free(cx, (void*)cname);
 
@@ -54,6 +70,7 @@ void error_callback(JSContext *cx, const char *message, JSErrorReport *report) {
 
 /* Function pointers to avoid CGO warnning. */
 JSNative           the_go_func_callback = &go_func_callback;
+JSNative           the_go_obj_func_callback = &go_obj_func_callback;
 JSPropertyOp       the_go_getter_callback = &go_getter_callback;
 JSStrictPropertyOp the_go_setter_callback = &go_setter_callback; 
 JSErrorReporter    the_error_callback = &error_callback;

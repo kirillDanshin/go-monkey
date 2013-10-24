@@ -26,6 +26,7 @@ func main() {
 					return runtime.Int(100), true
 				},
 				func(o *js.Object, val *js.Value) bool {
+					// must set 200.
 					assert(val.IsInt())
 					assert(val.Int() == 200)
 					return true
@@ -39,7 +40,8 @@ func main() {
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval(`
-			a = get_data(); 
+			a = get_data();
+			// must set 200, look at the code above.
 			a.abc = 200;
 			a.abc;
 		`); assert(ok) {
@@ -47,6 +49,4 @@ func main() {
 			assert(value.Int() == 100)
 		}
 	}
-
-	runtime.Dispose()
 }

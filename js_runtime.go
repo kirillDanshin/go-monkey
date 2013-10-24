@@ -22,6 +22,7 @@ import "C"
 import (
 	"errors"
 	"github.com/realint/monkey/goid"
+	"runtime"
 	"sync"
 	"unsafe"
 )
@@ -88,13 +89,12 @@ func NewRuntime(maxbytes uint32) (*Runtime, error) {
 		return r.Null(), printCall(argv, true)
 	})
 
-	return r, nil
-}
+	runtime.SetFinalizer(r, func(r *Runtime) {
+		C.JS_DestroyContext(r.cx)
+		C.JS_DestroyRuntime(r.rt)
+	})
 
-// Frees the JavaScript runtime.
-func (r *Runtime) Dispose() {
-	C.JS_DestroyContext(r.cx)
-	C.JS_DestroyRuntime(r.rt)
+	return r, nil
 }
 
 // Because we can't prevent Go to execute a JavaScript that maybe will execute another JavaScript by invoke Go function.
@@ -173,6 +173,25 @@ func (r *Runtime) Eval(script string) (*Value, bool) {
 	}
 
 	return r.Void(), false
+}
+
+// Compiled Script
+type Script struct {
+	runtime   *Runtime
+	scriptObj *C.JSObject
+}
+
+// Execute the script
+func (s *Script) Execute() (*Value, bool) {
+	s.runtime.lock()
+	defer s.runtime.unlock()
+
+	var rval C.jsval
+	if C.JS_ExecuteScript(s.runtime.cx, s.runtime.global, s.scriptObj, &rval) == C.JS_TRUE {
+		return newValue(s.runtime, rval), true
+	}
+
+	return s.runtime.Void(), false
 }
 
 // Compile JavaScript
@@ -298,23 +317,4 @@ func (r *Runtime) NewObject() *Object {
 	r.lock()
 	defer r.unlock()
 	return newObject(r, C.JS_NewObject(r.cx, nil, nil, nil))
-}
-
-// Compiled Script
-type Script struct {
-	runtime   *Runtime
-	scriptObj *C.JSObject
-}
-
-// Execute the script
-func (s *Script) Execute() (*Value, bool) {
-	s.runtime.lock()
-	defer s.runtime.unlock()
-
-	var rval C.jsval
-	if C.JS_ExecuteScript(s.runtime.cx, s.runtime.global, s.scriptObj, &rval) == C.JS_TRUE {
-		return newValue(s.runtime, rval), true
-	}
-
-	return s.runtime.Void(), false
 }
