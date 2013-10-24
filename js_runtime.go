@@ -162,39 +162,47 @@ func (r *Runtime) Eval(script string) (*Value, bool) {
 
 // Compiled Script
 type Script struct {
-	runtime   *Runtime
-	scriptObj *C.JSObject
+	rt  *Runtime
+	obj *C.JSObject
 }
 
 // Execute the script
 func (s *Script) Execute() (*Value, bool) {
-	s.runtime.lock()
-	defer s.runtime.unlock()
+	s.rt.lock()
+	defer s.rt.unlock()
 
 	var rval C.jsval
-	if C.JS_ExecuteScript(s.runtime.cx, s.runtime.global, s.scriptObj, &rval) == C.JS_TRUE {
-		return newValue(s.runtime, rval), true
+	if C.JS_ExecuteScript(s.rt.cx, s.rt.global, s.obj, &rval) == C.JS_TRUE {
+		return newValue(s.rt, rval), true
 	}
 
-	return s.runtime.Void(), false
+	return s.rt.Void(), false
 }
 
 // Compile JavaScript
 // When you need run a script many times, you can use this to avoid dynamic compile.
-func (r *Runtime) Compile(script, filename string, lineno int) *Script {
+func (r *Runtime) Compile(code, filename string, lineno int) *Script {
 	r.lock()
 	defer r.unlock()
 
-	cscript := C.CString(script)
-	defer C.free(unsafe.Pointer(cscript))
+	ccode := C.CString(code)
+	defer C.free(unsafe.Pointer(ccode))
 
 	cfilename := C.CString(filename)
 	defer C.free(unsafe.Pointer(cfilename))
 
-	var scriptObj = C.JS_CompileScript(r.cx, r.global, cscript, C.size_t(len(script)), cfilename, C.uintN(lineno))
+	var obj = C.JS_CompileScript(r.cx, r.global, ccode, C.size_t(len(code)), cfilename, C.uintN(lineno))
 
-	if scriptObj != nil {
-		return &Script{r, scriptObj}
+	if obj != nil {
+		script := &Script{r, obj}
+
+		C.JS_AddObjectRoot(r.cx, &script.obj)
+
+		runtime.SetFinalizer(script, func(s *Script) {
+			C.JS_RemoveObjectRoot(s.rt.cx, &s.obj)
+		})
+
+		return script
 	}
 
 	return nil
