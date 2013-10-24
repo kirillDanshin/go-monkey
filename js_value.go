@@ -1,10 +1,7 @@
 package monkey
 
 /*
-#cgo linux  LDFLAGS: -lmozjs185
-#cgo darwin LDFLAGS: -lmozjs185
-
-#include "js/jsapi.h"
+#include "monkey.h"
 */
 import "C"
 import (

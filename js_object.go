@@ -1,17 +1,7 @@
 package monkey
 
 /*
-#cgo linux  LDFLAGS: -lmozjs185
-#cgo darwin LDFLAGS: -lmozjs185
-
-#include "js/jsapi.h"
-
-extern JSPropertyOp       the_go_getter_callback;
-extern JSStrictPropertyOp the_go_setter_callback;
-extern JSNative           the_go_obj_func_callback;
-
-extern void _JS_SET_RVAL(JSContext *cx, jsval* vp, jsval v);
-extern jsval JS_GET_ARGV(JSContext *cx, jsval* vp, int n);
+#include "monkey.h"
 */
 import "C"
 import (
@@ -159,13 +149,13 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 	var argv = make([]*Value, int(argc))
 
 	for i := 0; i < len(argv); i++ {
-		argv[i] = newValue(o.rt, C.JS_GET_ARGV(o.rt.cx, vp, C.int(i)))
+		argv[i] = newValue(o.rt, C.GET_ARGV(o.rt.cx, vp, C.int(i)))
 	}
 
 	var result, ok = o.funcs[C.GoString(name)](argv)
 
 	if ok {
-		C._JS_SET_RVAL(o.rt.cx, vp, result.val)
+		C.SET_RVAL(o.rt.cx, vp, result.val)
 		return C.JS_TRUE
 	}
 
