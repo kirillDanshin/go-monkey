@@ -94,11 +94,11 @@ func main() {
 
 	// Define a function
 	if runtime.DefineFunction("add",
-		func(argv []*js.Value) (*js.Value, bool) {
+		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
 			if len(argv) != 2 {
-				return runtime.Null(), false
+				return rt.Null(), false
 			}
-			return runtime.Int(argv[0].Int() + argv[1].Int()), true
+			return rt.Int(argv[0].Int() + argv[1].Int()), true
 		},
 	) {
 		// Call the function
@@ -221,11 +221,11 @@ func main() {
 
 	// Define a function that return an object with function from Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []*js.Value) (*js.Value, bool) {
-			obj := runtime.NewObject()
+		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+			obj := rt.NewObject()
 
-			ok := obj.DefineFunction("abc", func(argv []*js.Value) (*js.Value, bool) {
-				return runtime.Int(100), true
+			ok := obj.DefineFunction("abc", func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+				return rt.Int(100), true
 			})
 
 			assert(ok)
@@ -307,10 +307,10 @@ func main() {
 
 	// Return an array from Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []*js.Value) (*js.Value, bool) {
-			array := runtime.NewArray()
-			array.SetElement(0, runtime.Int(100))
-			array.SetElement(1, runtime.Int(200))
+		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+			array := rt.NewArray()
+			array.SetElement(0, rt.Int(100))
+			array.SetElement(1, rt.Int(200))
 			return array.ToValue(), true
 		},
 	); assert(ok) {
@@ -387,10 +387,10 @@ func main() {
 
 	// Return and object From Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []*js.Value) (*js.Value, bool) {
-			obj := runtime.NewObject()
-			obj.SetProperty("abc", runtime.Int(100))
-			obj.SetProperty("def", runtime.Int(200))
+		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+			obj := rt.NewObject()
+			obj.SetProperty("abc", rt.Int(100))
+			obj.SetProperty("def", rt.Int(200))
 			return obj.ToValue(), true
 		},
 	); assert(ok) {
@@ -441,12 +441,12 @@ func main() {
 
 	// Return Object With Property Getter And Setter From Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []*js.Value) (*js.Value, bool) {
-			obj := runtime.NewObject()
+		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+			obj := rt.NewObject()
 
 			ok := obj.DefineProperty("abc", runtime.Null(),
 				func(o *js.Object) (*js.Value, bool) {
-					return runtime.Int(100), true
+					return o.Runtime().Int(100), true
 				},
 				func(o *js.Object, val *js.Value) bool {
 					// must set 200.

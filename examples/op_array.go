@@ -55,10 +55,10 @@ func main() {
 
 	// Return an array from Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []*js.Value) (*js.Value, bool) {
-			array := runtime.NewArray()
-			array.SetElement(0, runtime.Int(100))
-			array.SetElement(1, runtime.Int(200))
+		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+			array := rt.NewArray()
+			array.SetElement(0, rt.Int(100))
+			array.SetElement(1, rt.Int(200))
 			return array.ToValue(), true
 		},
 	); assert(ok) {

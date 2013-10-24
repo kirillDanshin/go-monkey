@@ -66,11 +66,11 @@ func NewRuntime(maxbytes uint32) (*Runtime, error) {
 	// User defined function use this to find callback.
 	C.JS_SetRuntimePrivate(r.rt, unsafe.Pointer(r))
 
-	r.DefineFunction("print", func(argv []*Value) (*Value, bool) {
+	r.DefineFunction("print", func(_ *Runtime, argv []*Value) (*Value, bool) {
 		return r.Null(), printCall(argv, false)
 	})
 
-	r.DefineFunction("println", func(argv []*Value) (*Value, bool) {
+	r.DefineFunction("println", func(_ *Runtime, argv []*Value) (*Value, bool) {
 		return r.Null(), printCall(argv, true)
 	})
 
@@ -166,6 +166,10 @@ type Script struct {
 	obj *C.JSObject
 }
 
+func (s *Script) Runtime() *Runtime {
+	return s.rt
+}
+
 // Execute the script
 func (s *Script) Execute() (*Value, bool) {
 	s.rt.lock()
@@ -208,7 +212,7 @@ func (r *Runtime) Compile(code, filename string, lineno int) *Script {
 	return nil
 }
 
-type JsFunc func(argv []*Value) (*Value, bool)
+type JsFunc func(runtime *Runtime, argv []*Value) (*Value, bool)
 
 //export call_go_func
 func call_go_func(r unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.JSBool {
@@ -220,7 +224,7 @@ func call_go_func(r unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.J
 		argv[i] = newValue(runtime, C.GET_ARGV(runtime.cx, vp, C.int(i)))
 	}
 
-	var result, ok = runtime.callbacks[C.GoString(name)](argv)
+	var result, ok = runtime.callbacks[C.GoString(name)](runtime, argv)
 
 	if ok {
 		C.SET_RVAL(runtime.cx, vp, result.val)
