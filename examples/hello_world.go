@@ -5,13 +5,13 @@ import js "github.com/realint/monkey"
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
 	// Evaluate Script
-	if value, err := runtime.Eval("'Hello ' + 'World!'"); err == nil {
+	if value, ok := runtime.Eval("'Hello ' + 'World!'"); ok {
 		println(value.ToString())
 	}
 
@@ -19,25 +19,25 @@ func main() {
 	runtime.Eval("println('Hello Built-in Function!')")
 
 	// Compile Once, Run Many Times
-	if script, err := runtime.Compile(
+	if script := runtime.Compile(
 		"println('Hello Compiler!')",
 		"<no name>", 0,
-	); err == nil {
+	); script != nil {
 		script.Execute()
 		script.Execute()
 		script.Execute()
 	}
 
 	// Define Function
-	if err := runtime.DefineFunction("add",
+	if runtime.DefineFunction("add",
 		func(argv []js.Value) (js.Value, bool) {
 			if len(argv) != 2 {
 				return runtime.Null(), false
 			}
 			return runtime.Int(argv[0].Int() + argv[1].Int()), true
 		},
-	); err == nil {
-		if value, err := runtime.Eval("add(100, 200)"); err == nil {
+	) {
+		if value, ok := runtime.Eval("add(100, 200)"); ok {
 			println(value.Int())
 		}
 	}

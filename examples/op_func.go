@@ -11,13 +11,13 @@ func assert(c bool) bool {
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
 	// Function
-	if value, err := runtime.Eval("function(a,b){ return a+b; }"); assert(err == nil) {
+	if value, ok := runtime.Eval("function(a,b){ return a+b; }"); assert(ok) {
 		// Type Check
 		assert(value.IsFunction())
 

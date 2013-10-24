@@ -105,11 +105,13 @@ func printCall(argv []Value, newline bool) bool {
 	return true
 }
 
-func NewRuntime() (*Runtime, error) {
+// Initializes the JavaScript runtime.
+// @maxbytes Maximum number of allocated bytes after which garbage collection is run.
+func NewRuntime(maxbytes uint32) (*Runtime, error) {
 	r := new(Runtime)
 	r.callbacks = make(map[string]JsFunc)
 
-	r.rt = C.JS_NewRuntime(8 * 1024 * 1024)
+	r.rt = C.JS_NewRuntime(C.uint32(maxbytes))
 	if r.rt == nil {
 		return nil, errors.New("Could't create JSRuntime")
 	}
@@ -142,11 +144,15 @@ func NewRuntime() (*Runtime, error) {
 	return r, nil
 }
 
+// Frees the JavaScript runtime.
 func (r *Runtime) Dispose() {
 	C.JS_DestroyContext(r.cx)
 	C.JS_DestroyRuntime(r.rt)
 }
 
+// Because we can't prevent Go to execute a JavaScript that maybe will execute another JavaScript by invoke Go function.
+// Like this: runtime.Eval("eval('1 + 1')")
+// So I designed this lock mechanism to let runtime can lock by same goroutine many times.
 func (r *Runtime) lock() {
 	id := goid.Get()
 	if r.lockBy != id {
@@ -166,11 +172,14 @@ func (r *Runtime) unlock() {
 	}
 }
 
+// Set a error reporter
 func (r *Runtime) SetErrorReporter(reporter ErrorReporter) {
 	r.errorReporter = reporter
 }
 
-func (r *Runtime) Eval(script string) (Value, error) {
+// Evaluate JavaScript
+// When you need high efficiency or run same script many times, please look at Compile() method.
+func (r *Runtime) Eval(script string) (Value, bool) {
 	r.lock()
 	defer r.unlock()
 
@@ -179,13 +188,15 @@ func (r *Runtime) Eval(script string) (Value, error) {
 
 	var rval C.jsval
 	if C.JS_EvaluateScript(r.cx, r.global, cscript, C.uintN(len(script)), C.eval_filename, 0, &rval) == C.JS_TRUE {
-		return Value{r, rval}, nil
+		return Value{r, rval}, true
 	}
 
-	return r.Null(), errors.New("Could't evaluate script")
+	return r.Void(), false
 }
 
-func (r *Runtime) Compile(script, filename string, lineno int) (*Script, error) {
+// Compile JavaScript
+// When you need run a script many times, you can use this to avoid dynamic compile.
+func (r *Runtime) Compile(script, filename string, lineno int) *Script {
 	r.lock()
 	defer r.unlock()
 
@@ -198,13 +209,16 @@ func (r *Runtime) Compile(script, filename string, lineno int) (*Script, error) 
 	var scriptObj = C.JS_CompileScript(r.cx, r.global, cscript, C.size_t(len(script)), cfilename, C.uintN(lineno))
 
 	if scriptObj != nil {
-		return &Script{r, scriptObj}, nil
+		return &Script{r, scriptObj}
 	}
 
-	return nil, errors.New("Could't compile script")
+	return nil
 }
 
-func (r *Runtime) DefineFunction(name string, callback JsFunc) error {
+// Define a function into runtime
+// @name     The function name
+// @callback The function implement
+func (r *Runtime) DefineFunction(name string, callback JsFunc) bool {
 	r.lock()
 	defer r.unlock()
 
@@ -212,26 +226,30 @@ func (r *Runtime) DefineFunction(name string, callback JsFunc) error {
 	defer C.free(unsafe.Pointer(cname))
 
 	if C.JS_DefineFunction(r.cx, r.global, cname, C.the_go_func_callback, 0, 0) == nil {
-		return errors.New("Could't define function")
+		return false
 	}
 
 	r.callbacks[name] = callback
 
-	return nil
+	return true
 }
 
+// Warp int32
 func (r *Runtime) Int(v int32) Value {
 	return Value{r, C.INT_TO_JSVAL(C.int32(v))}
 }
 
+// Warp null
 func (r *Runtime) Null() Value {
 	return Value{r, C.GET_JS_NULL()}
 }
 
+// Warp void
 func (r *Runtime) Void() Value {
 	return Value{r, C.GET_JS_VOID()}
 }
 
+// Warp boolean
 func (r *Runtime) Boolean(v bool) Value {
 	if v {
 		return Value{r, C.JS_TRUE}
@@ -239,16 +257,19 @@ func (r *Runtime) Boolean(v bool) Value {
 	return Value{r, C.JS_FALSE}
 }
 
+// Warp string
 func (r *Runtime) String(v string) Value {
 	cv := C.CString(v)
 	defer C.free(unsafe.Pointer(cv))
 	return Value{r, C.STRING_TO_JSVAL(C.JS_NewStringCopyN(r.cx, cv, C.size_t(len(v))))}
 }
 
+// Create an empty array, like: []
 func (r *Runtime) NewArray() Object {
 	return Object{r, C.JS_NewArrayObject(r.cx, 0, nil)}
 }
 
+// Create an empty object, like: {}
 func (r *Runtime) NewObject() Object {
 	return Object{r, C.JS_NewObject(r.cx, nil, nil, nil)}
 }
@@ -259,16 +280,17 @@ type Script struct {
 	scriptObj *C.JSObject
 }
 
-func (s *Script) Execute() (*Value, error) {
+// Execute the script
+func (s *Script) Execute() (Value, bool) {
 	s.runtime.lock()
 	defer s.runtime.unlock()
 
 	var rval C.jsval
 	if C.JS_ExecuteScript(s.runtime.cx, s.runtime.global, s.scriptObj, &rval) == C.JS_TRUE {
-		return &Value{s.runtime, rval}, nil
+		return Value{s.runtime, rval}, true
 	}
 
-	return nil, errors.New("Could't execute script")
+	return s.runtime.Void(), false
 }
 
 // JavaScript Value
@@ -338,6 +360,7 @@ func (v Value) IsFunction() bool {
 	return false
 }
 
+// Try convert a value to String.
 func (v Value) ToString() string {
 	cstring := C.JS_EncodeString(v.runtime.cx, C.JS_ValueToString(v.runtime.cx, v.val))
 	gostring := C.GoString(cstring)
@@ -345,6 +368,7 @@ func (v Value) ToString() string {
 	return gostring
 }
 
+// Try convert a value to Int.
 func (v Value) ToInt() (int32, bool) {
 	var r C.int32
 	if C.JS_ValueToInt32(v.runtime.cx, v.val, &r) == C.JS_TRUE {
@@ -353,6 +377,7 @@ func (v Value) ToInt() (int32, bool) {
 	return 0, false
 }
 
+// Try convert a value to Number.
 func (v Value) ToNumber() (float64, bool) {
 	var r C.jsdouble
 	if C.JS_ValueToNumber(v.runtime.cx, v.val, &r) == C.JS_TRUE {
@@ -361,6 +386,7 @@ func (v Value) ToNumber() (float64, bool) {
 	return 0, false
 }
 
+// Try convert a value to Boolean.
 func (v Value) ToBoolean() (bool, bool) {
 	var r C.JSBool
 	if C.JS_ValueToBoolean(v.runtime.cx, v.val, &r) == C.JS_TRUE {
@@ -372,6 +398,7 @@ func (v Value) ToBoolean() (bool, bool) {
 	return false, false
 }
 
+// Try convert a value to Object.
 func (v Value) ToObject() (Object, bool) {
 	var obj *C.JSObject
 
@@ -382,6 +409,7 @@ func (v Value) ToObject() (Object, bool) {
 	return Object{}, false
 }
 
+// !!! This function will make program fault when the value not a really String.
 func (v Value) String() string {
 	cstring := C.JS_EncodeString(v.runtime.cx, C.JSVAL_TO_STRING(v.val))
 	gostring := C.GoString(cstring)
@@ -390,14 +418,17 @@ func (v Value) String() string {
 	return gostring
 }
 
+// !!! This function will make program fault when the value not a really Int.
 func (v Value) Int() int32 {
 	return int32(C.JSVAL_TO_INT(v.val))
 }
 
+// !!! This function will make program fault when the value not a really Number.
 func (v Value) Number() float64 {
 	return float64(C.JSVAL_TO_DOUBLE(v.val))
 }
 
+// !!! This function will make program fault when the value not a really Boolean.
 func (v Value) Boolean() bool {
 	if C.JSVAL_TO_BOOLEAN(v.val) == C.JS_TRUE {
 		return true
@@ -405,6 +436,7 @@ func (v Value) Boolean() bool {
 	return false
 }
 
+// !!! This function will make program fault when the value not a really Object.
 func (v Value) Object() Object {
 	return Object{v.runtime, C.JSVAL_TO_OBJECT(v.val)}
 }

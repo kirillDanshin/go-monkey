@@ -4,11 +4,18 @@ import "sync"
 import "runtime"
 import js "github.com/realint/monkey"
 
+func assert(c bool) bool {
+	if !c {
+		panic("assert failed")
+	}
+	return c
+}
+
 func main() {
 	runtime.GOMAXPROCS(20)
 
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
@@ -20,7 +27,8 @@ func main() {
 		wg.Add(1)
 		go func() {
 			for j := 0; j < 1000; j++ {
-				runtime.Eval("println('Hello World!')")
+				_, ok := runtime.Eval("println('Hello World!')")
+				assert(ok)
 			}
 			wg.Done()
 		}()

@@ -11,13 +11,13 @@ func assert(c bool) bool {
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
 	// Return Object From JavaScript
-	if value, err := runtime.Eval("x={a:123}"); assert(err == nil) {
+	if value, ok := runtime.Eval("x={a:123}"); assert(ok) {
 		// Type Check
 		assert(value.IsObject())
 		obj := value.Object()
@@ -37,15 +37,15 @@ func main() {
 	}
 
 	// Return Object From Go
-	if err := runtime.DefineFunction("get_data",
+	if ok := runtime.DefineFunction("get_data",
 		func(argv []js.Value) (js.Value, bool) {
 			obj := runtime.NewObject()
 			obj.SetProperty("abc", runtime.Int(100))
 			obj.SetProperty("def", runtime.Int(200))
 			return obj.ToValue(), true
 		},
-	); err == nil {
-		if value, err := runtime.Eval("get_data()"); assert(err == nil) {
+	); assert(ok) {
+		if value, ok := runtime.Eval("get_data()"); assert(ok) {
 			// Type Check
 			assert(value.IsObject())
 			obj := value.Object()

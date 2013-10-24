@@ -66,13 +66,13 @@ import js "github.com/realint/monkey"
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
 	// Evaluate Script
-	if value, err := runtime.Eval("'Hello ' + 'World!'"); err == nil {
+	if value, ok := runtime.Eval("'Hello ' + 'World!'"); ok {
 		println(value.ToString())
 	}
 
@@ -80,25 +80,25 @@ func main() {
 	runtime.Eval("println('Hello Built-in Function!')")
 
 	// Compile Once, Run Many Times
-	if script, err := runtime.Compile(
+	if script := runtime.Compile(
 		"println('Hello Compiler!')",
 		"<no name>", 0,
-	); err == nil {
+	); script != nil {
 		script.Execute()
 		script.Execute()
 		script.Execute()
 	}
 
 	// Define Function
-	if err := runtime.DefineFunction("add",
+	if runtime.DefineFunction("add",
 		func(argv []js.Value) (js.Value, bool) {
 			if len(argv) != 2 {
 				return runtime.Null(), false
 			}
 			return runtime.Int(argv[0].Int() + argv[1].Int()), true
 		},
-	); err == nil {
-		if value, err := runtime.Eval("add(100, 200)"); err == nil {
+	) {
+		if value, ok := runtime.Eval("add(100, 200)"); ok {
 			println(value.Int())
 		}
 	}
@@ -149,25 +149,25 @@ func assert(c bool) bool {
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
 	// String
-	if value, err := runtime.Eval("'abc'"); assert(err == nil) {
+	if value, ok := runtime.Eval("'abc'"); assert(ok) {
 		assert(value.IsString())
 		assert(value.String() == "abc")
 	}
 
 	// Int
-	if value, err := runtime.Eval("123456789"); assert(err == nil) {
+	if value, ok := runtime.Eval("123456789"); assert(ok) {
 		assert(value.IsInt())
 		assert(value.Int() == 123456789)
 	}
 
 	// Number
-	if value, err := runtime.Eval("12345.6789"); assert(err == nil) {
+	if value, ok := runtime.Eval("12345.6789"); assert(ok) {
 		assert(value.IsNumber())
 		assert(value.Number() == 12345.6789)
 	}
@@ -192,13 +192,13 @@ func assert(c bool) bool {
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
 	// Return Object From JavaScript
-	if value, err := runtime.Eval("x={a:123}"); assert(err == nil) {
+	if value, ok := runtime.Eval("x={a:123}"); assert(ok) {
 		// Type Check
 		assert(value.IsObject())
 		obj := value.Object()
@@ -218,15 +218,15 @@ func main() {
 	}
 
 	// Return Object From Go
-	if err := runtime.DefineFunction("get_data",
+	if ok := runtime.DefineFunction("get_data",
 		func(argv []js.Value) (js.Value, bool) {
 			obj := runtime.NewObject()
 			obj.SetProperty("abc", runtime.Int(100))
 			obj.SetProperty("def", runtime.Int(200))
 			return obj.ToValue(), true
 		},
-	); err == nil {
-		if value, err := runtime.Eval("get_data()"); assert(err == nil) {
+	); assert(ok) {
+		if value, ok := runtime.Eval("get_data()"); assert(ok) {
 			// Type Check
 			assert(value.IsObject())
 			obj := value.Object()
@@ -264,13 +264,13 @@ func assert(c bool) bool {
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
 	// Return Array From JavaScript
-	if value, err := runtime.Eval("[123, 456]"); assert(err == nil) {
+	if value, ok := runtime.Eval("[123, 456]"); assert(ok) {
 		// Type Check
 		assert(value.IsObject())
 		obj := value.Object()
@@ -302,15 +302,15 @@ func main() {
 	}
 
 	// Return Array From Go
-	if err := runtime.DefineFunction("get_data",
+	if ok := runtime.DefineFunction("get_data",
 		func(argv []js.Value) (js.Value, bool) {
 			array := runtime.NewArray()
 			array.SetElement(0, runtime.Int(100))
 			array.SetElement(1, runtime.Int(200))
 			return array.ToValue(), true
 		},
-	); err == nil {
-		if value, err := runtime.Eval("get_data()"); assert(err == nil) {
+	); assert(ok) {
+		if value, ok := runtime.Eval("get_data()"); assert(ok) {
 			// Type Check
 			assert(value.IsObject())
 			obj := value.Object()
@@ -351,13 +351,13 @@ func assert(c bool) bool {
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
 
 	// Function
-	if value, err := runtime.Eval("function(a,b){ return a+b; }"); assert(err == nil) {
+	if value, ok := runtime.Eval("function(a,b){ return a+b; }"); assert(ok) {
 		// Type Check
 		assert(value.IsFunction())
 
@@ -386,11 +386,18 @@ import "sync"
 import "runtime"
 import js "github.com/realint/monkey"
 
+func assert(c bool) bool {
+	if !c {
+		panic("assert failed")
+	}
+	return c
+}
+
 func main() {
 	runtime.GOMAXPROCS(20)
 
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime()
+	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
 	if err1 != nil {
 		panic(err1)
 	}
@@ -402,7 +409,8 @@ func main() {
 		wg.Add(1)
 		go func() {
 			for j := 0; j < 1000; j++ {
-				runtime.Eval("println('Hello World!')")
+				_, ok := runtime.Eval("println('Hello World!')")
+				assert(ok)
 			}
 			wg.Done()
 		}()
