@@ -22,6 +22,7 @@ import "sync"
 import "errors"
 import "unsafe"
 import "reflect"
+import "runtime"
 import "github.com/realint/monkey/goid"
 
 type ErrorReporter func(report *ErrorReport)
@@ -265,13 +266,13 @@ func (r *Runtime) String(v string) Value {
 }
 
 // Create an empty array, like: []
-func (r *Runtime) NewArray() Object {
-	return Object{r, C.JS_NewArrayObject(r.cx, 0, nil)}
+func (r *Runtime) NewArray() *Object {
+	return newObject(r, C.JS_NewArrayObject(r.cx, 0, nil))
 }
 
 // Create an empty object, like: {}
-func (r *Runtime) NewObject() Object {
-	return Object{r, C.JS_NewObject(r.cx, nil, nil, nil)}
+func (r *Runtime) NewObject() *Object {
+	return newObject(r, C.JS_NewObject(r.cx, nil, nil, nil))
 }
 
 // Compiled Script
@@ -295,8 +296,8 @@ func (s *Script) Execute() (Value, bool) {
 
 // JavaScript Value
 type Value struct {
-	runtime *Runtime
-	val     C.jsval
+	rt  *Runtime
+	val C.jsval
 }
 
 func (v Value) IsNull() bool {
@@ -349,29 +350,24 @@ func (v Value) IsObject() bool {
 }
 
 func (v Value) IsFunction() bool {
-	if !v.IsObject() {
-		return false
-	}
-
-	if C.JS_ObjectIsFunction(v.runtime.cx, C.JSVAL_TO_OBJECT(v.val)) == C.JS_TRUE {
+	if v.IsObject() && C.JS_ObjectIsFunction(v.rt.cx, C.JSVAL_TO_OBJECT(v.val)) == C.JS_TRUE {
 		return true
 	}
-
 	return false
 }
 
 // Try convert a value to String.
 func (v Value) ToString() string {
-	cstring := C.JS_EncodeString(v.runtime.cx, C.JS_ValueToString(v.runtime.cx, v.val))
+	cstring := C.JS_EncodeString(v.rt.cx, C.JS_ValueToString(v.rt.cx, v.val))
 	gostring := C.GoString(cstring)
-	C.JS_free(v.runtime.cx, unsafe.Pointer(cstring))
+	C.JS_free(v.rt.cx, unsafe.Pointer(cstring))
 	return gostring
 }
 
 // Try convert a value to Int.
 func (v Value) ToInt() (int32, bool) {
 	var r C.int32
-	if C.JS_ValueToInt32(v.runtime.cx, v.val, &r) == C.JS_TRUE {
+	if C.JS_ValueToInt32(v.rt.cx, v.val, &r) == C.JS_TRUE {
 		return int32(r), true
 	}
 	return 0, false
@@ -380,7 +376,7 @@ func (v Value) ToInt() (int32, bool) {
 // Try convert a value to Number.
 func (v Value) ToNumber() (float64, bool) {
 	var r C.jsdouble
-	if C.JS_ValueToNumber(v.runtime.cx, v.val, &r) == C.JS_TRUE {
+	if C.JS_ValueToNumber(v.rt.cx, v.val, &r) == C.JS_TRUE {
 		return float64(r), true
 	}
 	return 0, false
@@ -389,7 +385,7 @@ func (v Value) ToNumber() (float64, bool) {
 // Try convert a value to Boolean.
 func (v Value) ToBoolean() (bool, bool) {
 	var r C.JSBool
-	if C.JS_ValueToBoolean(v.runtime.cx, v.val, &r) == C.JS_TRUE {
+	if C.JS_ValueToBoolean(v.rt.cx, v.val, &r) == C.JS_TRUE {
 		if r == C.JS_TRUE {
 			return true, true
 		}
@@ -399,21 +395,19 @@ func (v Value) ToBoolean() (bool, bool) {
 }
 
 // Try convert a value to Object.
-func (v Value) ToObject() (Object, bool) {
+func (v Value) ToObject() (*Object, bool) {
 	var obj *C.JSObject
-
-	if C.JS_ValueToObject(v.runtime.cx, v.val, &obj) == C.JS_TRUE {
-		return Object{v.runtime, obj}, true
+	if C.JS_ValueToObject(v.rt.cx, v.val, &obj) == C.JS_TRUE {
+		return newObject(v.rt, obj), true
 	}
-
-	return Object{}, false
+	return nil, false
 }
 
 // !!! This function will make program fault when the value not a really String.
 func (v Value) String() string {
-	cstring := C.JS_EncodeString(v.runtime.cx, C.JSVAL_TO_STRING(v.val))
+	cstring := C.JS_EncodeString(v.rt.cx, C.JSVAL_TO_STRING(v.val))
 	gostring := C.GoString(cstring)
-	C.JS_free(v.runtime.cx, unsafe.Pointer(cstring))
+	C.JS_free(v.rt.cx, unsafe.Pointer(cstring))
 
 	return gostring
 }
@@ -437,25 +431,21 @@ func (v Value) Boolean() bool {
 }
 
 // !!! This function will make program fault when the value not a really Object.
-func (v Value) Object() Object {
-	return Object{v.runtime, C.JSVAL_TO_OBJECT(v.val)}
+func (v Value) Object() *Object {
+	return newObject(v.rt, C.JSVAL_TO_OBJECT(v.val))
 }
 
 func (v Value) Call(argv []Value) (Value, bool) {
 	argv2 := make([]C.jsval, len(argv))
-
 	for i := 0; i < len(argv); i++ {
 		argv2[i] = argv[i].val
 	}
-
 	argv3 := unsafe.Pointer(&argv2)
 	argv4 := (*reflect.SliceHeader)(argv3).Data
 	argv5 := (*C.jsval)(unsafe.Pointer(argv4))
 
-	r := v.runtime.Void()
-	if C.JS_CallFunctionValue(v.runtime.cx, nil, v.val,
-		C.uintN(len(argv)), argv5, &r.val,
-	) == C.JS_TRUE {
+	r := v.rt.Void()
+	if C.JS_CallFunctionValue(v.rt.cx, nil, v.val, C.uintN(len(argv)), argv5, &r.val) == C.JS_TRUE {
 		return r, true
 	}
 
@@ -463,72 +453,86 @@ func (v Value) Call(argv []Value) (Value, bool) {
 }
 
 func (v Value) TypeName() string {
-	jstype := C.JS_TypeOfValue(v.runtime.cx, v.val)
-	return C.GoString(C.JS_GetTypeName(v.runtime.cx, jstype))
+	jstype := C.JS_TypeOfValue(v.rt.cx, v.val)
+	return C.GoString(C.JS_GetTypeName(v.rt.cx, jstype))
 }
 
 // JavaScript Object
 type Object struct {
-	runtime *Runtime
-	obj     *C.JSObject
+	rt  *Runtime
+	obj *C.JSObject
 }
 
-func (o Object) IsArray() bool {
-	if C.JS_IsArrayObject(o.runtime.cx, o.obj) == C.JS_TRUE {
+// Add the JSObject to the garbage collector's root set.
+// Reference: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/JSAPI_reference/JS_AddRoot
+func newObject(rt *Runtime, obj *C.JSObject) *Object {
+	result := &Object{rt, obj}
+
+	C.JS_AddObjectRoot(rt.cx, &(result.obj))
+
+	runtime.SetFinalizer(result, func(o *Object) {
+		C.JS_RemoveObjectRoot(o.rt.cx, &(o.obj))
+	})
+
+	return result
+}
+
+func (o *Object) IsArray() bool {
+	if C.JS_IsArrayObject(o.rt.cx, o.obj) == C.JS_TRUE {
 		return true
 	}
 	return false
 }
 
-func (o Object) GetArrayLength() int {
+func (o *Object) GetArrayLength() int {
 	var l C.jsuint
-	C.JS_GetArrayLength(o.runtime.cx, o.obj, &l)
+	C.JS_GetArrayLength(o.rt.cx, o.obj, &l)
 	return int(l)
 }
 
-func (o Object) SetArrayLength(length int) bool {
-	if C.JS_SetArrayLength(o.runtime.cx, o.obj, C.jsuint(length)) == C.JS_TRUE {
+func (o *Object) SetArrayLength(length int) bool {
+	if C.JS_SetArrayLength(o.rt.cx, o.obj, C.jsuint(length)) == C.JS_TRUE {
 		return true
 	}
 	return false
 }
 
-func (o Object) GetElement(index int) (Value, bool) {
-	r := o.runtime.Void()
-	if C.JS_GetElement(o.runtime.cx, o.obj, C.jsint(index), &r.val) == C.JS_TRUE {
+func (o *Object) GetElement(index int) (Value, bool) {
+	r := o.rt.Void()
+	if C.JS_GetElement(o.rt.cx, o.obj, C.jsint(index), &r.val) == C.JS_TRUE {
 		return r, true
 	}
 	return r, false
 }
 
-func (o Object) SetElement(index int, v Value) bool {
-	if C.JS_SetElement(o.runtime.cx, o.obj, C.jsint(index), &v.val) == C.JS_TRUE {
+func (o *Object) SetElement(index int, v Value) bool {
+	if C.JS_SetElement(o.rt.cx, o.obj, C.jsint(index), &v.val) == C.JS_TRUE {
 		return true
 	}
 	return false
 }
 
-func (o Object) GetProperty(name string) (Value, bool) {
+func (o *Object) GetProperty(name string) (Value, bool) {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	r := o.runtime.Void()
-	if C.JS_GetProperty(o.runtime.cx, o.obj, cname, &r.val) == C.JS_TRUE {
+	r := o.rt.Void()
+	if C.JS_GetProperty(o.rt.cx, o.obj, cname, &r.val) == C.JS_TRUE {
 		return r, true
 	}
 	return r, false
 }
 
-func (o Object) SetProperty(name string, v Value) bool {
+func (o *Object) SetProperty(name string, v Value) bool {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	if C.JS_SetProperty(o.runtime.cx, o.obj, cname, &v.val) == C.JS_TRUE {
+	if C.JS_SetProperty(o.rt.cx, o.obj, cname, &v.val) == C.JS_TRUE {
 		return true
 	}
 	return false
 }
 
-func (o Object) ToValue() Value {
-	return Value{o.runtime, C.OBJECT_TO_JSVAL(o.obj)}
+func (o *Object) ToValue() Value {
+	return Value{o.rt, C.OBJECT_TO_JSVAL(o.obj)}
 }
