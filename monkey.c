@@ -16,12 +16,35 @@ JSBool go_func_callback(JSContext *cx, uintN argc, jsval *vp) {
 	jsval name;
 	JS_GetProperty(cx, callee, "name", &name);
 
-	return call_go_func(
-		JS_GetRuntimePrivate(JS_GetRuntime(cx)), 
-		JS_EncodeString(cx, JS_ValueToString(cx, name)), 
-		argc,
-		vp
-	);
+	char* cname = JS_EncodeString(cx, JS_ValueToString(cx, name));
+
+	JSBool result = call_go_func(JS_GetRuntimePrivate(JS_GetRuntime(cx)), cname, argc, vp);
+
+	JS_free(cx, (void*)cname);
+
+	return result;
+}
+
+/* The property getter callback */
+JSBool go_getter_callback(JSContext *cx, JSObject *obj, jsid id, jsval *vp) {
+	char* cname = JS_EncodeString(cx, JSID_TO_STRING(id));
+
+	JSBool result = call_go_getter(JS_GetPrivate(cx, obj), cname, vp);
+
+	JS_free(cx, (void*)cname);
+
+	return result;
+}
+
+/* The property setter callback */
+JSBool go_setter_callback(JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp) {
+	char* cname = JS_EncodeString(cx, JSID_TO_STRING(id));
+
+	JSBool result = call_go_setter(JS_GetPrivate(cx, obj), cname, vp);
+
+	JS_free(cx, (void*)cname);
+
+	return result;
 }
 
 /* The error reporter callback. */
@@ -30,8 +53,10 @@ void error_callback(JSContext *cx, const char *message, JSErrorReport *report) {
 }
 
 /* Function pointers to avoid CGO warnning. */
-JSNative the_go_func_callback = &go_func_callback;
-JSErrorReporter the_error_callback = &error_callback;
+JSNative           the_go_func_callback = &go_func_callback;
+JSPropertyOp       the_go_getter_callback = &go_getter_callback;
+JSStrictPropertyOp the_go_setter_callback = &go_setter_callback; 
+JSErrorReporter    the_error_callback = &error_callback;
 
 /* File name for evaluate script. */
 const char* eval_filename = "Eval()";

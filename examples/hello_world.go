@@ -30,7 +30,7 @@ func main() {
 
 	// Define Function
 	if runtime.DefineFunction("add",
-		func(argv []js.Value) (js.Value, bool) {
+		func(argv []*js.Value) (*js.Value, bool) {
 			if len(argv) != 2 {
 				return runtime.Null(), false
 			}

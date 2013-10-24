@@ -22,7 +22,7 @@ func main() {
 		assert(value.IsFunction())
 
 		// Call
-		value1, ok1 := value.Call([]js.Value{
+		value1, ok1 := value.Call([]*js.Value{
 			runtime.Int(10),
 			runtime.Int(20),
 		})

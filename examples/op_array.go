@@ -17,40 +17,45 @@ func main() {
 	}
 
 	// Return Array From JavaScript
-	if value, ok := runtime.Eval("[123, 456]"); assert(ok) {
+	if value, ok := runtime.Eval("[123, 456];"); assert(ok) {
 		// Type Check
-		assert(value.IsObject())
-		obj := value.Object()
-		assert(obj.IsArray())
-		assert(obj.GetArrayLength() == 2)
+		assert(value.IsArray())
+		array := value.Array()
+		assert(array != nil)
+
+		// Length Check
+		length, ok := array.GetLength()
+		assert(ok)
+		assert(length == 2)
 
 		// Get First Item
-		value1, ok1 := obj.GetElement(0)
+		value1, ok1 := array.GetElement(0)
 		assert(ok1)
 		assert(value1.IsInt())
 		assert(value1.Int() == 123)
 
 		// Get Second Item
-		value2, ok2 := obj.GetElement(1)
+		value2, ok2 := array.GetElement(1)
 		assert(ok2)
 		assert(value2.IsInt())
 		assert(value2.Int() == 456)
 
 		// Set First Item
-		assert(obj.SetElement(0, runtime.Int(789)))
-		value3, ok3 := obj.GetElement(0)
+		assert(array.SetElement(0, runtime.Int(789)))
+		value3, ok3 := array.GetElement(0)
 		assert(ok3)
 		assert(value3.IsInt())
 		assert(value3.Int() == 789)
 
 		// Grows
-		assert(obj.SetArrayLength(3))
-		assert(obj.GetArrayLength() == 3)
+		assert(array.SetLength(3))
+		length2, _ := array.GetLength()
+		assert(length2 == 3)
 	}
 
 	// Return Array From Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []js.Value) (js.Value, bool) {
+		func(argv []*js.Value) (*js.Value, bool) {
 			array := runtime.NewArray()
 			array.SetElement(0, runtime.Int(100))
 			array.SetElement(1, runtime.Int(200))
@@ -59,19 +64,23 @@ func main() {
 	); assert(ok) {
 		if value, ok := runtime.Eval("get_data()"); assert(ok) {
 			// Type Check
-			assert(value.IsObject())
-			obj := value.Object()
-			assert(obj.IsArray())
-			assert(obj.GetArrayLength() == 2)
+			assert(value.IsArray())
+			array := value.Array()
+			assert(array != nil)
+
+			// Length Check
+			length, ok := array.GetLength()
+			assert(ok)
+			assert(length == 2)
 
 			// Get First Item
-			value1, ok1 := obj.GetElement(0)
+			value1, ok1 := array.GetElement(0)
 			assert(ok1)
 			assert(value1.IsInt())
 			assert(value1.Int() == 100)
 
 			// Get Second Item
-			value2, ok2 := obj.GetElement(1)
+			value2, ok2 := array.GetElement(1)
 			assert(ok2)
 			assert(value2.IsInt())
 			assert(value2.Int() == 200)

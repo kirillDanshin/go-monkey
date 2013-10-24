@@ -38,7 +38,7 @@ func main() {
 
 	// Return Object From Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []js.Value) (js.Value, bool) {
+		func(argv []*js.Value) (*js.Value, bool) {
 			obj := runtime.NewObject()
 			obj.SetProperty("abc", runtime.Int(100))
 			obj.SetProperty("def", runtime.Int(200))
