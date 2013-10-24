@@ -66,11 +66,11 @@ func NewRuntime(maxbytes uint32) (*Runtime, error) {
 	// User defined function use this to find callback.
 	C.JS_SetRuntimePrivate(r.rt, unsafe.Pointer(r))
 
-	r.DefineFunction("print", func(runtime *Runtime, argv []*Value) (*Value, bool) {
+	r.DefineFunction("print", func(_ *Runtime, argv []*Value) (*Value, bool) {
 		return r.Null(), printCall(argv, false)
 	})
 
-	r.DefineFunction("println", func(runtime *Runtime, argv []*Value) (*Value, bool) {
+	r.DefineFunction("println", func(_ *Runtime, argv []*Value) (*Value, bool) {
 		return r.Null(), printCall(argv, true)
 	})
 
@@ -164,6 +164,10 @@ func (r *Runtime) Eval(script string) (*Value, bool) {
 type Script struct {
 	rt  *Runtime
 	obj *C.JSObject
+}
+
+func (s *Script) Runtime() *Runtime {
+	return s.rt
 }
 
 // Execute the script

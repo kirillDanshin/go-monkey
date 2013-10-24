@@ -38,10 +38,10 @@ func main() {
 
 	// Return and object From Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []*js.Value) (*js.Value, bool) {
-			obj := runtime.NewObject()
-			obj.SetProperty("abc", runtime.Int(100))
-			obj.SetProperty("def", runtime.Int(200))
+		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+			obj := rt.NewObject()
+			obj.SetProperty("abc", rt.Int(100))
+			obj.SetProperty("def", rt.Int(200))
 			return obj.ToValue(), true
 		},
 	); assert(ok) {

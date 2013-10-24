@@ -35,6 +35,10 @@ func newObject(rt *Runtime, obj *C.JSObject) *Object {
 	return result
 }
 
+func (o *Object) Runtime() *Runtime {
+	return o.rt
+}
+
 func (o *Object) ToValue() *Value {
 	return newValue(o.rt, C.OBJECT_TO_JSVAL(o.obj))
 }
@@ -152,7 +156,7 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 		argv[i] = newValue(o.rt, C.GET_ARGV(o.rt.cx, vp, C.int(i)))
 	}
 
-	var result, ok = o.funcs[C.GoString(name)](argv)
+	var result, ok = o.funcs[C.GoString(name)](o.rt, argv)
 
 	if ok {
 		C.SET_RVAL(o.rt.cx, vp, result.val)

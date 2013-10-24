@@ -28,6 +28,10 @@ func newValue(rt *Runtime, val C.jsval) *Value {
 	return result
 }
 
+func (v *Value) Runtime() *Runtime {
+	return v.rt
+}
+
 func (v *Value) IsNull() bool {
 	if C.JSVAL_IS_NULL(v.val) == C.JS_TRUE {
 		return true

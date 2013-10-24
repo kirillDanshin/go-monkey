@@ -18,12 +18,12 @@ func main() {
 
 	// Return Object With Property Getter And Setter From Go
 	if ok := runtime.DefineFunction("get_data",
-		func(argv []*js.Value) (*js.Value, bool) {
-			obj := runtime.NewObject()
+		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+			obj := rt.NewObject()
 
 			ok := obj.DefineProperty("abc", runtime.Null(),
 				func(o *js.Object) (*js.Value, bool) {
-					return runtime.Int(100), true
+					return o.Runtime().Int(100), true
 				},
 				func(o *js.Object, val *js.Value) bool {
 					// must set 200.
