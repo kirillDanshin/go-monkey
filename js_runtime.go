@@ -153,16 +153,16 @@ func (s *Script) Runtime() *Runtime {
 }
 
 // Execute the script
-func (s *Script) Execute() (*Value, bool) {
+func (s *Script) Execute() *Value {
 	s.rt.lock()
 	defer s.rt.unlock()
 
 	var rval C.jsval
 	if C.JS_ExecuteScript(s.rt.cx, s.rt.global, s.obj, &rval) == C.JS_TRUE {
-		return newValue(s.rt, rval), true
+		return newValue(s.rt, rval)
 	}
 
-	return s.rt.Void(), false
+	return nil
 }
 
 // Compile JavaScript
