@@ -40,77 +40,53 @@ func (v *Value) TypeName() string {
 	v.rt.lock()
 	defer v.rt.unlock()
 
-	jstype := C.JS_TypeOfValue(v.rt.cx, v.val)
-	return C.GoString(C.JS_GetTypeName(v.rt.cx, jstype))
+	return C.GoString(C.JS_GetTypeName(v.rt.cx, C.JS_TypeOfValue(v.rt.cx, v.val)))
 }
 
 func (v *Value) IsNull() bool {
-	if C.JSVAL_IS_NULL(v.val) == C.JS_TRUE {
-		return true
-	}
-	return false
+	return C.JSVAL_IS_NULL(v.val) == C.JS_TRUE
 }
 
 func (v *Value) IsVoid() bool {
-	if C.JSVAL_IS_VOID(v.val) == C.JS_TRUE {
-		return true
-	}
-	return false
+	return C.JSVAL_IS_VOID(v.val) == C.JS_TRUE
 }
 
 func (v *Value) IsInt() bool {
-	if C.JSVAL_IS_INT(v.val) == C.JS_TRUE {
-		return true
-	}
-	return false
+	return C.JSVAL_IS_INT(v.val) == C.JS_TRUE
 }
 
 func (v *Value) IsNumber() bool {
-	if C.JSVAL_IS_NUMBER(v.val) == C.JS_TRUE {
-		return true
-	}
-	return false
+	return C.JSVAL_IS_NUMBER(v.val) == C.JS_TRUE
 }
 
 func (v *Value) IsBoolean() bool {
-	if C.JSVAL_IS_BOOLEAN(v.val) == C.JS_TRUE {
-		return true
-	}
-	return false
+	return C.JSVAL_IS_BOOLEAN(v.val) == C.JS_TRUE
 }
 
 func (v *Value) IsString() bool {
-	if C.JSVAL_IS_STRING(v.val) == C.JS_TRUE {
-		return true
-	}
-	return false
+	return C.JSVAL_IS_STRING(v.val) == C.JS_TRUE
 }
 
 func (v *Value) IsObject() bool {
-	if C.JSVAL_IS_OBJECT(v.val) == C.JS_TRUE {
-		return true
-	}
-	return false
+	return C.JSVAL_IS_OBJECT(v.val) == C.JS_TRUE
 }
 
 func (v *Value) IsArray() bool {
-	if v.IsObject() {
-		var obj *C.JSObject
-		if C.JS_ValueToObject(v.rt.cx, v.val, &obj) == C.JS_TRUE {
-			return C.JS_IsArrayObject(v.rt.cx, obj) == C.JS_TRUE
-		}
-	}
-	return false
+	v.rt.lock()
+	defer v.rt.unlock()
+
+	return v.IsObject() && C.JS_IsArrayObject(
+		v.rt.cx, C.JSVAL_TO_OBJECT(v.val),
+	) == C.JS_TRUE
 }
 
 func (v *Value) IsFunction() bool {
 	v.rt.lock()
 	defer v.rt.unlock()
 
-	if v.IsObject() && C.JS_ObjectIsFunction(v.rt.cx, C.JSVAL_TO_OBJECT(v.val)) == C.JS_TRUE {
-		return true
-	}
-	return false
+	return v.IsObject() && C.JS_ObjectIsFunction(
+		v.rt.cx, C.JSVAL_TO_OBJECT(v.val),
+	) == C.JS_TRUE
 }
 
 // Convert a value to Int.

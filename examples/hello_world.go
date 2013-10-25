@@ -29,14 +29,14 @@ func main() {
 	runtime.Eval("println('Hello Function!')")
 
 	// Compile once, run many times
-	if script := runtime.Compile(
+	script := runtime.Compile(
 		"println('Hello Compiler!')",
 		"<no name>", 0,
-	); script != nil {
-		script.Execute()
-		script.Execute()
-		script.Execute()
-	}
+	)
+
+	script.Execute()
+	script.Execute()
+	script.Execute()
 
 	// Error handler
 	runtime.SetErrorReporter(func(report *js.ErrorReport) {
