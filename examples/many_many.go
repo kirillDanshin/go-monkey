@@ -1,5 +1,6 @@
 package main
 
+import "fmt"
 import "sync"
 import "runtime"
 import js "github.com/realint/monkey"
@@ -23,9 +24,9 @@ func main() {
 	runtime.DefineFunction("println",
 		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			for i := 0; i < len(args); i++ {
-				print(args[i].ToString())
+				fmt.Print(args[i])
 			}
-			println()
+			fmt.Println()
 			return runtime.Void()
 		},
 	)
