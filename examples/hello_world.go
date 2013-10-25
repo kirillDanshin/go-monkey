@@ -16,13 +16,15 @@ func main() {
 	}
 
 	// Define a function and call it
-	runtime.DefineFunction("println", func(rt *js.Runtime, args []*js.Value) *js.Value {
-		for i := 0; i < len(args); i++ {
-			print(args[i].ToString())
-		}
-		println()
-		return runtime.Void()
-	})
+	runtime.DefineFunction("println",
+		func(rt *js.Runtime, args []*js.Value) *js.Value {
+			for i := 0; i < len(args); i++ {
+				print(args[i].ToString())
+			}
+			println()
+			return runtime.Void()
+		},
+	)
 
 	runtime.Eval("println('Hello Function!')")
 

@@ -80,13 +80,15 @@ func main() {
 	}
 
 	// Define a function and call it
-	runtime.DefineFunction("println", func(rt *js.Runtime, args []*js.Value) *js.Value {
-		for i := 0; i < len(args); i++ {
-			print(args[i].ToString())
-		}
-		println()
-		return runtime.Void()
-	})
+	runtime.DefineFunction("println",
+		func(rt *js.Runtime, args []*js.Value) *js.Value {
+			for i := 0; i < len(args); i++ {
+				print(args[i].ToString())
+			}
+			println()
+			return runtime.Void()
+		},
+	)
 
 	runtime.Eval("println('Hello Function!')")
 
@@ -450,9 +452,8 @@ func main() {
 				},
 				// The setter callback is called each time
 				// JavaScript code assigns to the property
-				func(o *js.Object, val *js.Value) bool {
+				func(o *js.Object, val *js.Value) {
 					propValue = val.Int()
-					return true
 				},
 				0,
 			)

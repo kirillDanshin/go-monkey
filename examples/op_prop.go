@@ -33,9 +33,8 @@ func main() {
 				},
 				// The setter callback is called each time
 				// JavaScript code assigns to the property
-				func(o *js.Object, val *js.Value) bool {
+				func(o *js.Object, val *js.Value) {
 					propValue = val.Int()
-					return true
 				},
 				0,
 			)

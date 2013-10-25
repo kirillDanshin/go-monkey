@@ -77,7 +77,7 @@ const (
 )
 
 type JsPropertyGetter func(o *Object) *Value
-type JsPropertySetter func(o *Object, v *Value) bool
+type JsPropertySetter func(o *Object, v *Value)
 
 //export call_go_getter
 func call_go_getter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
@@ -95,9 +95,8 @@ func call_go_getter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 func call_go_setter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 	o := (*Object)(obj)
 	if o.setters != nil {
-		if o.setters[C.GoString(name)](o, newValue(o.rt, *val)) {
-			return C.JS_TRUE
-		}
+		o.setters[C.GoString(name)](o, newValue(o.rt, *val))
+		return C.JS_TRUE
 	}
 	return C.JS_FALSE
 }
