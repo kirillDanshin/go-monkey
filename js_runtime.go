@@ -127,7 +127,7 @@ func (r *Runtime) SetErrorReporter(reporter ErrorReporter) {
 
 // Evaluate JavaScript
 // When you need high efficiency or run same script many times, please look at Compile() method.
-func (r *Runtime) Eval(script string) (*Value, bool) {
+func (r *Runtime) Eval(script string) *Value {
 	r.lock()
 	defer r.unlock()
 
@@ -136,10 +136,10 @@ func (r *Runtime) Eval(script string) (*Value, bool) {
 
 	var rval C.jsval
 	if C.JS_EvaluateScript(r.cx, r.global, cscript, C.uintN(len(script)), C.eval_filename, 0, &rval) == C.JS_TRUE {
-		return newValue(r, rval), true
+		return newValue(r, rval)
 	}
 
-	return r.Void(), false
+	return nil
 }
 
 // Compiled Script

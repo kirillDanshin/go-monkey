@@ -11,7 +11,7 @@ func main() {
 	}
 
 	// Evaluate script
-	if value, ok := runtime.Eval("'Hello ' + 'World!'"); ok {
+	if value := runtime.Eval("'Hello ' + 'World!'"); value != nil {
 		println(value.ToString())
 	}
 

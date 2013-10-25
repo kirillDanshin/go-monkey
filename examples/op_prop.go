@@ -17,7 +17,7 @@ func main() {
 	}
 
 	// Return Object With Property Getter And Setter From Go
-	if ok := runtime.DefineFunction("get_data",
+	ok := runtime.DefineFunction("get_data",
 		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			obj := rt.NewObject()
 
@@ -34,7 +34,9 @@ func main() {
 				// The setter callback is called each time
 				// JavaScript code assigns to the property
 				func(o *js.Object, val *js.Value) {
-					propValue = val.Int()
+					var ok bool
+					propValue, ok = val.ToInt()
+					assert(ok)
 				},
 				0,
 			)
@@ -43,35 +45,33 @@ func main() {
 
 			return obj.ToValue()
 		},
-	); assert(ok) {
-		if value, ok := runtime.Eval(`
-			a = get_data();
-			v1 = a.abc;
-			a.abc = 456;
-			v2 = a.abc;
-			[v1, v2];
-		`); assert(ok) {
-			// Type check
-			assert(value.IsArray())
-			array := value.Array()
-			assert(array != nil)
+	)
 
-			// Length check
-			length, ok := array.GetLength()
-			assert(ok)
-			assert(length == 2)
+	assert(ok)
 
-			// Get first item
-			value1, ok1 := array.GetElement(0)
-			assert(ok1)
-			assert(value1.IsInt())
-			assert(value1.Int() == 123)
+	if value := runtime.Eval(`
+		a = get_data();
+		v1 = a.abc;
+		a.abc = 456;
+		v2 = a.abc;
+		[v1, v2];
+	`); assert(value != nil) {
+		// Type check
+		assert(value.IsArray())
+		array := value.ToArray()
+		assert(array != nil)
 
-			// Get second item
-			value2, ok2 := array.GetElement(1)
-			assert(ok2)
-			assert(value2.IsInt())
-			assert(value2.Int() == 456)
-		}
+		// Length check
+		assert(array.GetLength() == 2)
+
+		// Check v1
+		value1, ok1 := array.GetInt(0)
+		assert(ok1)
+		assert(value1 == 123)
+
+		// Check v2
+		value2, ok2 := array.GetInt(1)
+		assert(ok2)
+		assert(value2 == 456)
 	}
 }

@@ -43,18 +43,19 @@ func (o *Object) ToValue() *Value {
 	return newValue(o.rt, C.OBJECT_TO_JSVAL(o.obj))
 }
 
-func (o *Object) GetProperty(name string) (*Value, bool) {
+func (o *Object) GetProperty(name string) *Value {
 	o.rt.lock()
 	defer o.rt.unlock()
 
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	r := o.rt.Void()
-	if C.JS_GetProperty(o.rt.cx, o.obj, cname, &r.val) == C.JS_TRUE {
-		return r, true
+	var rval C.jsval
+	if C.JS_GetProperty(o.rt.cx, o.obj, cname, &rval) == C.JS_TRUE {
+		return newValue(o.rt, rval)
 	}
-	return r, false
+
+	return nil
 }
 
 func (o *Object) SetProperty(name string, v *Value) bool {
@@ -186,4 +187,74 @@ func (o *Object) DefineFunction(name string, callback JsFunc) bool {
 	o.funcs[name] = callback
 
 	return true
+}
+
+/*
+Utilities
+*/
+
+func (o *Object) GetInt(name string) (int32, bool) {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToInt()
+	}
+	return 0, false
+}
+
+func (o *Object) SetInt(name string, v int32) bool {
+	return o.SetProperty(name, o.rt.Int(v))
+}
+
+func (o *Object) GetNumber(name string) (float64, bool) {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToNumber()
+	}
+	return 0, false
+}
+
+func (o *Object) SetNumber(name string, v float64) bool {
+	return o.SetProperty(name, o.rt.Number(v))
+}
+
+func (o *Object) GetBoolean(name string) (bool, bool) {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToBoolean()
+	}
+	return false, false
+}
+
+func (o *Object) SetBoolean(name string, v bool) bool {
+	return o.SetProperty(name, o.rt.Boolean(v))
+}
+
+func (o *Object) GetString(name string) (string, bool) {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToString(), true
+	}
+	return "", false
+}
+
+func (o *Object) SetString(name string, v string) bool {
+	return o.SetProperty(name, o.rt.String(v))
+}
+
+func (o *Object) GetObject(name string) *Object {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToObject()
+	}
+	return nil
+}
+
+func (o *Object) SetObject(name string, o2 *Object) bool {
+	return o.SetProperty(name, o2.ToValue())
+}
+
+func (o *Object) GetArray(name string) *Array {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToArray()
+	}
+	return nil
+}
+
+func (o *Object) SetArray(name string, o2 *Array) bool {
+	return o.SetProperty(name, o2.ToValue())
 }

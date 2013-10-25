@@ -37,8 +37,8 @@ func main() {
 		wg.Add(1)
 		go func() {
 			for j := 0; j < 1000; j++ {
-				_, ok := runtime.Eval("println('Hello World!')")
-				assert(ok)
+				v := runtime.Eval("println('Hello World!')")
+				assert(v != nil)
 			}
 			wg.Done()
 		}()

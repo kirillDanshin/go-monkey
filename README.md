@@ -75,7 +75,7 @@ func main() {
 	}
 
 	// Evaluate script
-	if value, ok := runtime.Eval("'Hello ' + 'World!'"); ok {
+	if value := runtime.Eval("'Hello ' + 'World!'"); value != nil {
 		println(value.ToString())
 	}
 
@@ -153,21 +153,27 @@ func main() {
 	}
 
 	// String
-	if value, ok := runtime.Eval("'abc'"); assert(ok) {
+	if value := runtime.Eval("'abc'"); assert(value != nil) {
 		assert(value.IsString())
-		assert(value.String() == "abc")
+		assert(value.ToString() == "abc")
 	}
 
 	// Int
-	if value, ok := runtime.Eval("123456789"); assert(ok) {
+	if value := runtime.Eval("123456789"); assert(value != nil) {
 		assert(value.IsInt())
-		assert(value.Int() == 123456789)
+
+		if value1, ok1 := value.ToInt(); assert(ok1) {
+			assert(value1 == 123456789)
+		}
 	}
 
 	// Number
-	if value, ok := runtime.Eval("12345.6789"); assert(ok) {
+	if value := runtime.Eval("12345.6789"); assert(value != nil) {
 		assert(value.IsNumber())
-		assert(value.Number() == 12345.6789)
+
+		if value1, ok1 := value.ToNumber(); assert(ok1) {
+			assert(value1 == 12345.6789)
+		}
 	}
 }
 ```
@@ -197,24 +203,27 @@ func main() {
 	}
 
 	// Return a function object from JavaScript
-	if value, ok := runtime.Eval("function(a,b){ return a+b; }"); assert(ok) {
+	if value := runtime.Eval("function(a,b){ return a+b; }"); assert(value != nil) {
 		// Type check
 		assert(value.IsFunction())
 
 		// Call
-		value1, ok1 := value.Call([]*js.Value{
+		value1 := value.Call([]*js.Value{
 			runtime.Int(10),
 			runtime.Int(20),
 		})
 
 		// Result check
-		assert(ok1)
+		assert(value1 != nil)
 		assert(value1.IsNumber())
-		assert(value1.Int() == 30)
+
+		if value2, ok2 := value1.ToNumber(); assert(ok2) {
+			assert(value2 == 30)
+		}
 	}
 
 	// Define a function that return an object with function from Go
-	if ok := runtime.DefineFunction("get_data",
+	ok := runtime.DefineFunction("get_data",
 		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			obj := rt.NewObject()
 
@@ -228,13 +237,18 @@ func main() {
 
 			return obj.ToValue()
 		},
-	); assert(ok) {
-		if value, ok := runtime.Eval(`
-			a = get_data(); 
-			a.abc();
-		`); assert(ok) {
-			assert(value.IsInt())
-			assert(value.Int() == 100)
+	)
+
+	assert(ok)
+
+	if value := runtime.Eval(`
+		a = get_data(); 
+		a.abc();
+	`); assert(value != nil) {
+		assert(value.IsInt())
+
+		if value2, ok2 := value.ToInt(); assert(ok2) {
+			assert(value2 == 100)
 		}
 	}
 }
@@ -265,73 +279,63 @@ func main() {
 	}
 
 	// Return an array from JavaScript
-	if value, ok := runtime.Eval("[123, 456];"); assert(ok) {
-		// Type check
+	if value := runtime.Eval("[123, 456];"); assert(value != nil) {
+		// Check type
 		assert(value.IsArray())
-		array := value.Array()
+		array := value.ToArray()
 		assert(array != nil)
 
-		// Length check
-		length, ok := array.GetLength()
-		assert(ok)
-		assert(length == 2)
+		// Check length
+		assert(array.GetLength() == 2)
 
-		// Get first item
-		value1, ok1 := array.GetElement(0)
+		// Check first item
+		value1, ok1 := array.GetInt(0)
 		assert(ok1)
-		assert(value1.IsInt())
-		assert(value1.Int() == 123)
+		assert(value1 == 123)
 
-		// Get second item
-		value2, ok2 := array.GetElement(1)
+		// Check second item
+		value2, ok2 := array.GetInt(1)
 		assert(ok2)
-		assert(value2.IsInt())
-		assert(value2.Int() == 456)
+		assert(value2 == 456)
 
 		// Set first item
-		assert(array.SetElement(0, runtime.Int(789)))
-		value3, ok3 := array.GetElement(0)
+		assert(array.SetInt(0, 789))
+		value3, ok3 := array.GetInt(0)
 		assert(ok3)
-		assert(value3.IsInt())
-		assert(value3.Int() == 789)
+		assert(value3 == 789)
 
 		// Grows
 		assert(array.SetLength(3))
-		length2, _ := array.GetLength()
-		assert(length2 == 3)
+		assert(array.GetLength() == 3)
 	}
 
 	// Return an array from Go
 	if ok := runtime.DefineFunction("get_data",
 		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			array := rt.NewArray()
-			array.SetElement(0, rt.Int(100))
-			array.SetElement(1, rt.Int(200))
+			array.SetInt(0, 100)
+			array.SetInt(1, 200)
 			return array.ToValue()
 		},
 	); assert(ok) {
-		if value, ok := runtime.Eval("get_data()"); assert(ok) {
-			// Type check
+		if value := runtime.Eval("get_data()"); assert(value != nil) {
+			// Check type
 			assert(value.IsArray())
-			array := value.Array()
+			array := value.ToArray()
 			assert(array != nil)
 
-			// Length check
-			length, ok := array.GetLength()
-			assert(ok)
-			assert(length == 2)
+			// Check length
+			assert(array.GetLength() == 2)
 
-			// Get first item
-			value1, ok1 := array.GetElement(0)
+			// Check first item
+			value1, ok1 := array.GetInt(0)
 			assert(ok1)
-			assert(value1.IsInt())
-			assert(value1.Int() == 100)
+			assert(value1 == 100)
 
-			// Get second item
-			value2, ok2 := array.GetElement(1)
+			// Check second item
+			value2, ok2 := array.GetInt(1)
 			assert(ok2)
-			assert(value2.IsInt())
-			assert(value2.Int() == 200)
+			assert(value2 == 200)
 		}
 	}
 }
@@ -362,51 +366,49 @@ func main() {
 	}
 
 	// Return an object from JavaScript
-	if value, ok := runtime.Eval("x={a:123}"); assert(ok) {
+	if value := runtime.Eval("x={a:123}"); assert(value != nil) {
 		// Type check
 		assert(value.IsObject())
-		obj := value.Object()
+		obj := value.ToObject()
 
 		// Get property 'a'
-		value1, ok1 := obj.GetProperty("a")
+		value1, ok1 := obj.GetInt("a")
 		assert(ok1)
-		assert(value1.IsInt())
-		assert(value1.Int() == 123)
+		assert(value1 == 123)
 
 		// Set property 'b'
-		assert(obj.SetProperty("b", runtime.Int(456)))
-		value2, ok2 := obj.GetProperty("b")
+		assert(obj.SetInt("b", 456))
+		value2, ok2 := obj.GetInt("b")
 		assert(ok2)
-		assert(value2.IsInt())
-		assert(value2.Int() == 456)
+		assert(value2 == 456)
 	}
 
 	// Return and object From Go
-	if ok := runtime.DefineFunction("get_data",
+	ok := runtime.DefineFunction("get_data",
 		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			obj := rt.NewObject()
-			obj.SetProperty("abc", rt.Int(100))
-			obj.SetProperty("def", rt.Int(200))
+			obj.SetInt("abc", 100)
+			obj.SetInt("def", 200)
 			return obj.ToValue()
 		},
-	); assert(ok) {
-		if value, ok := runtime.Eval("get_data()"); assert(ok) {
-			// Type check
-			assert(value.IsObject())
-			obj := value.Object()
+	)
 
-			// Get property 'abc'
-			value1, ok1 := obj.GetProperty("abc")
-			assert(ok1)
-			assert(value1.IsInt())
-			assert(value1.Int() == 100)
+	assert(ok)
 
-			// Get property 'def'
-			value2, ok2 := obj.GetProperty("def")
-			assert(ok2)
-			assert(value2.IsInt())
-			assert(value2.Int() == 200)
-		}
+	if value := runtime.Eval("get_data()"); assert(value != nil) {
+		// Type check
+		assert(value.IsObject())
+		obj := value.ToObject()
+
+		// Get property 'abc'
+		value1, ok1 := obj.GetInt("abc")
+		assert(ok1)
+		assert(value1 == 100)
+
+		// Get property 'def'
+		value2, ok2 := obj.GetInt("def")
+		assert(ok2)
+		assert(value2 == 200)
 	}
 }
 ```
@@ -436,7 +438,7 @@ func main() {
 	}
 
 	// Return Object With Property Getter And Setter From Go
-	if ok := runtime.DefineFunction("get_data",
+	ok := runtime.DefineFunction("get_data",
 		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			obj := rt.NewObject()
 
@@ -453,7 +455,9 @@ func main() {
 				// The setter callback is called each time
 				// JavaScript code assigns to the property
 				func(o *js.Object, val *js.Value) {
-					propValue = val.Int()
+					var ok bool
+					propValue, ok = val.ToInt()
+					assert(ok)
 				},
 				0,
 			)
@@ -462,36 +466,34 @@ func main() {
 
 			return obj.ToValue()
 		},
-	); assert(ok) {
-		if value, ok := runtime.Eval(`
-			a = get_data();
-			v1 = a.abc;
-			a.abc = 456;
-			v2 = a.abc;
-			[v1, v2];
-		`); assert(ok) {
-			// Type check
-			assert(value.IsArray())
-			array := value.Array()
-			assert(array != nil)
+	)
 
-			// Length check
-			length, ok := array.GetLength()
-			assert(ok)
-			assert(length == 2)
+	assert(ok)
 
-			// Get first item
-			value1, ok1 := array.GetElement(0)
-			assert(ok1)
-			assert(value1.IsInt())
-			assert(value1.Int() == 123)
+	if value := runtime.Eval(`
+		a = get_data();
+		v1 = a.abc;
+		a.abc = 456;
+		v2 = a.abc;
+		[v1, v2];
+	`); assert(value != nil) {
+		// Type check
+		assert(value.IsArray())
+		array := value.ToArray()
+		assert(array != nil)
 
-			// Get second item
-			value2, ok2 := array.GetElement(1)
-			assert(ok2)
-			assert(value2.IsInt())
-			assert(value2.Int() == 456)
-		}
+		// Length check
+		assert(array.GetLength() == 2)
+
+		// Check v1
+		value1, ok1 := array.GetInt(0)
+		assert(ok1)
+		assert(value1 == 123)
+
+		// Check v2
+		value2, ok2 := array.GetInt(1)
+		assert(ok2)
+		assert(value2 == 456)
 	}
 }
 ```
@@ -541,8 +543,8 @@ func main() {
 		wg.Add(1)
 		go func() {
 			for j := 0; j < 1000; j++ {
-				_, ok := runtime.Eval("println('Hello World!')")
-				assert(ok)
+				v := runtime.Eval("println('Hello World!')")
+				assert(v != nil)
 			}
 			wg.Done()
 		}()

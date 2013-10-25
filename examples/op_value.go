@@ -17,20 +17,26 @@ func main() {
 	}
 
 	// String
-	if value, ok := runtime.Eval("'abc'"); assert(ok) {
+	if value := runtime.Eval("'abc'"); assert(value != nil) {
 		assert(value.IsString())
-		assert(value.String() == "abc")
+		assert(value.ToString() == "abc")
 	}
 
 	// Int
-	if value, ok := runtime.Eval("123456789"); assert(ok) {
+	if value := runtime.Eval("123456789"); assert(value != nil) {
 		assert(value.IsInt())
-		assert(value.Int() == 123456789)
+
+		if value1, ok1 := value.ToInt(); assert(ok1) {
+			assert(value1 == 123456789)
+		}
 	}
 
 	// Number
-	if value, ok := runtime.Eval("12345.6789"); assert(ok) {
+	if value := runtime.Eval("12345.6789"); assert(value != nil) {
 		assert(value.IsNumber())
-		assert(value.Number() == 12345.6789)
+
+		if value1, ok1 := value.ToNumber(); assert(ok1) {
+			assert(value1 == 12345.6789)
+		}
 	}
 }
