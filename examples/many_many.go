@@ -20,13 +20,15 @@ func main() {
 		panic(err1)
 	}
 
-	runtime.DefineFunction("println", func(rt *js.Runtime, args []*js.Value) *js.Value {
-		for i := 0; i < len(args); i++ {
-			print(args[i].ToString())
-		}
-		println()
-		return runtime.Void()
-	})
+	runtime.DefineFunction("println",
+		func(rt *js.Runtime, args []*js.Value) *js.Value {
+			for i := 0; i < len(args); i++ {
+				print(args[i].ToString())
+			}
+			println()
+			return runtime.Void()
+		},
+	)
 
 	wg := new(sync.WaitGroup)
 
