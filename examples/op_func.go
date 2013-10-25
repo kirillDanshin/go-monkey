@@ -35,16 +35,18 @@ func main() {
 
 	// Define a function that return an object with function from Go
 	if ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			obj := rt.NewObject()
 
-			ok := obj.DefineFunction("abc", func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
-				return rt.Int(100), true
-			})
+			ok := obj.DefineFunction("abc",
+				func(rt *js.Runtime, args []*js.Value) *js.Value {
+					return rt.Int(100)
+				},
+			)
 
 			assert(ok)
 
-			return obj.ToValue(), true
+			return obj.ToValue()
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval(`

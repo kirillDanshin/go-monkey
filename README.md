@@ -79,8 +79,16 @@ func main() {
 		println(value.ToString())
 	}
 
-	// Call built-in function
-	runtime.Eval("println('Hello Built-in Function!')")
+	// Define a function and call it
+	runtime.DefineFunction("println", func(rt *js.Runtime, args []*js.Value) *js.Value {
+		for i := 0; i < len(args); i++ {
+			print(args[i].ToString())
+		}
+		println()
+		return runtime.Void()
+	})
+
+	runtime.Eval("println('Hello Function!')")
 
 	// Compile once, run many times
 	if script := runtime.Compile(
@@ -90,21 +98,6 @@ func main() {
 		script.Execute()
 		script.Execute()
 		script.Execute()
-	}
-
-	// Define a function
-	if runtime.DefineFunction("add",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
-			if len(argv) != 2 {
-				return rt.Null(), false
-			}
-			return rt.Int(argv[0].Int() + argv[1].Int()), true
-		},
-	) {
-		// Call the function
-		if value, ok := runtime.Eval("add(100, 200)"); ok {
-			println(value.Int())
-		}
 	}
 
 	// Error handler
@@ -126,11 +119,10 @@ This code will output:
 
 ```
 Hello World!
-Hello Built-in Function!
+Hello Function!
 Hello Compiler!
 Hello Compiler!
 Hello Compiler!
-300
 Eval():0: ReferenceError: abc is not defined
 ```
 
@@ -221,16 +213,18 @@ func main() {
 
 	// Define a function that return an object with function from Go
 	if ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			obj := rt.NewObject()
 
-			ok := obj.DefineFunction("abc", func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
-				return rt.Int(100), true
-			})
+			ok := obj.DefineFunction("abc",
+				func(rt *js.Runtime, args []*js.Value) *js.Value {
+					return rt.Int(100)
+				},
+			)
 
 			assert(ok)
 
-			return obj.ToValue(), true
+			return obj.ToValue()
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval(`
@@ -307,11 +301,11 @@ func main() {
 
 	// Return an array from Go
 	if ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			array := rt.NewArray()
 			array.SetElement(0, rt.Int(100))
 			array.SetElement(1, rt.Int(200))
-			return array.ToValue(), true
+			return array.ToValue()
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval("get_data()"); assert(ok) {
@@ -387,11 +381,11 @@ func main() {
 
 	// Return and object From Go
 	if ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			obj := rt.NewObject()
 			obj.SetProperty("abc", rt.Int(100))
 			obj.SetProperty("def", rt.Int(200))
-			return obj.ToValue(), true
+			return obj.ToValue()
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval("get_data()"); assert(ok) {
@@ -441,17 +435,23 @@ func main() {
 
 	// Return Object With Property Getter And Setter From Go
 	if ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
+		func(rt *js.Runtime, args []*js.Value) *js.Value {
 			obj := rt.NewObject()
 
-			ok := obj.DefineProperty("abc", runtime.Null(),
-				func(o *js.Object) (*js.Value, bool) {
-					return o.Runtime().Int(100), true
+			// Define the property 'abc' with getter and setter
+			var propValue int32 = 123
+			ok := obj.DefineProperty("abc",
+				// Init value
+				runtime.Int(propValue),
+				// T getter callback called each time
+				// JavaScript code accesses the property's value
+				func(o *js.Object) *js.Value {
+					return o.Runtime().Int(propValue)
 				},
+				// The setter callback is called each time
+				// JavaScript code assigns to the property
 				func(o *js.Object, val *js.Value) bool {
-					// must set 200.
-					assert(val.IsInt())
-					assert(val.Int() == 200)
+					propValue = val.Int()
 					return true
 				},
 				0,
@@ -459,17 +459,37 @@ func main() {
 
 			assert(ok)
 
-			return obj.ToValue(), true
+			return obj.ToValue()
 		},
 	); assert(ok) {
 		if value, ok := runtime.Eval(`
 			a = get_data();
-			// must set 200, look at the code above.
-			a.abc = 200;
-			a.abc;
+			v1 = a.abc;
+			a.abc = 456;
+			v2 = a.abc;
+			[v1, v2];
 		`); assert(ok) {
-			assert(value.IsInt())
-			assert(value.Int() == 100)
+			// Type check
+			assert(value.IsArray())
+			array := value.Array()
+			assert(array != nil)
+
+			// Length check
+			length, ok := array.GetLength()
+			assert(ok)
+			assert(length == 2)
+
+			// Get first item
+			value1, ok1 := array.GetElement(0)
+			assert(ok1)
+			assert(value1.IsInt())
+			assert(value1.Int() == 123)
+
+			// Get second item
+			value2, ok2 := array.GetElement(1)
+			assert(ok2)
+			assert(value2.IsInt())
+			assert(value2.Int() == 456)
 		}
 	}
 }
@@ -502,6 +522,14 @@ func main() {
 	if err1 != nil {
 		panic(err1)
 	}
+
+	runtime.DefineFunction("println", func(rt *js.Runtime, args []*js.Value) *js.Value {
+		for i := 0; i < len(args); i++ {
+			print(args[i].ToString())
+		}
+		println()
+		return runtime.Void()
+	})
 
 	wg := new(sync.WaitGroup)
 

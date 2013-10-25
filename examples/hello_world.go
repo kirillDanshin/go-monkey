@@ -15,8 +15,16 @@ func main() {
 		println(value.ToString())
 	}
 
-	// Call built-in function
-	runtime.Eval("println('Hello Built-in Function!')")
+	// Define a function and call it
+	runtime.DefineFunction("println", func(rt *js.Runtime, args []*js.Value) *js.Value {
+		for i := 0; i < len(args); i++ {
+			print(args[i].ToString())
+		}
+		println()
+		return runtime.Void()
+	})
+
+	runtime.Eval("println('Hello Function!')")
 
 	// Compile once, run many times
 	if script := runtime.Compile(
@@ -26,21 +34,6 @@ func main() {
 		script.Execute()
 		script.Execute()
 		script.Execute()
-	}
-
-	// Define a function
-	if runtime.DefineFunction("add",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
-			if len(argv) != 2 {
-				return rt.Null(), false
-			}
-			return rt.Int(argv[0].Int() + argv[1].Int()), true
-		},
-	) {
-		// Call the function
-		if value, ok := runtime.Eval("add(100, 200)"); ok {
-			println(value.Int())
-		}
 	}
 
 	// Error handler

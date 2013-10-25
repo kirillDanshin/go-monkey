@@ -27,16 +27,6 @@ type Runtime struct {
 	mutex         sync.Mutex
 }
 
-func printCall(argv []*Value, newline bool) bool {
-	for i := 0; i < len(argv); i++ {
-		print(argv[i].ToString())
-	}
-	if newline {
-		println()
-	}
-	return true
-}
-
 // Initializes the JavaScript runtime.
 // @maxbytes Maximum number of allocated bytes after which garbage collection is run.
 func NewRuntime(maxbytes uint32) (*Runtime, error) {
@@ -65,14 +55,6 @@ func NewRuntime(maxbytes uint32) (*Runtime, error) {
 
 	// User defined function use this to find callback.
 	C.JS_SetRuntimePrivate(r.rt, unsafe.Pointer(r))
-
-	r.DefineFunction("print", func(_ *Runtime, argv []*Value) (*Value, bool) {
-		return r.Null(), printCall(argv, false)
-	})
-
-	r.DefineFunction("println", func(_ *Runtime, argv []*Value) (*Value, bool) {
-		return r.Null(), printCall(argv, true)
-	})
 
 	runtime.SetFinalizer(r, func(r *Runtime) {
 		C.JS_DestroyContext(r.cx)
@@ -212,7 +194,7 @@ func (r *Runtime) Compile(code, filename string, lineno int) *Script {
 	return nil
 }
 
-type JsFunc func(runtime *Runtime, argv []*Value) (*Value, bool)
+type JsFunc func(runtime *Runtime, argv []*Value) *Value
 
 //export call_go_func
 func call_go_func(r unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.JSBool {
@@ -224,9 +206,9 @@ func call_go_func(r unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.J
 		argv[i] = newValue(runtime, C.GET_ARGV(runtime.cx, vp, C.int(i)))
 	}
 
-	var result, ok = runtime.callbacks[C.GoString(name)](runtime, argv)
+	var result = runtime.callbacks[C.GoString(name)](runtime, argv)
 
-	if ok {
+	if result != nil {
 		C.SET_RVAL(runtime.cx, vp, result.val)
 		return C.JS_TRUE
 	}
