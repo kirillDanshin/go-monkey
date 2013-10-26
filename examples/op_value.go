@@ -10,20 +10,20 @@ func assert(c bool) bool {
 }
 
 func main() {
-	// Create Script Runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	// Create script Runtime
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// String
-	if value := runtime.Eval("'abc'"); assert(value != nil) {
+	if value := context.Eval("'abc'"); assert(value != nil) {
 		assert(value.IsString())
 		assert(value.ToString() == "abc")
 	}
 
 	// Int
-	if value := runtime.Eval("123456789"); assert(value != nil) {
+	if value := context.Eval("123456789"); assert(value != nil) {
 		assert(value.IsInt())
 
 		if value1, ok1 := value.ToInt(); assert(ok1) {
@@ -32,7 +32,7 @@ func main() {
 	}
 
 	// Number
-	if value := runtime.Eval("12345.6789"); assert(value != nil) {
+	if value := context.Eval("12345.6789"); assert(value != nil) {
 		assert(value.IsNumber())
 
 		if value1, ok1 := value.ToNumber(); assert(ok1) {

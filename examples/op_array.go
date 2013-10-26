@@ -11,13 +11,13 @@ func assert(c bool) bool {
 
 func main() {
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Return an array from JavaScript
-	if value := runtime.Eval("[123, 456];"); assert(value != nil) {
+	if value := context.Eval("[123, 456];"); assert(value != nil) {
 		// Check type
 		assert(value.IsArray())
 		array := value.ToArray()
@@ -48,15 +48,15 @@ func main() {
 	}
 
 	// Return an array from Go
-	if ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
-			array := rt.NewArray()
+	if ok := context.DefineFunction("get_data",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			array := cx.NewArray()
 			array.SetInt(0, 100)
 			array.SetInt(1, 200)
 			return array.ToValue()
 		},
 	); assert(ok) {
-		if value := runtime.Eval("get_data()"); assert(value != nil) {
+		if value := context.Eval("get_data()"); assert(value != nil) {
 			// Check type
 			assert(value.IsArray())
 			array := value.ToArray()

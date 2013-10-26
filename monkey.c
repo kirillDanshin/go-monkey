@@ -14,7 +14,7 @@ JSClass global_class = {
 
 /* The error reporter callback. */
 void error_callback(JSContext *cx, const char *message, JSErrorReport *report) {
-	call_error_func(JS_GetRuntimePrivate(JS_GetRuntime(cx)), (char*)message, report);
+	call_error_func(JS_GetContextPrivate(cx), (char*)message, report);
 }
 
 /* The function callback. */
@@ -26,7 +26,7 @@ JSBool go_func_callback(JSContext *cx, uintN argc, jsval *vp) {
 
 	char* cname = JS_EncodeString(cx, JS_ValueToString(cx, name));
 
-	JSBool result = call_go_func(JS_GetRuntimePrivate(JS_GetRuntime(cx)), cname, argc, vp);
+	JSBool result = call_go_func(JS_GetContextPrivate(cx), cname, argc, vp);
 
 	JS_free(cx, (void*)cname);
 

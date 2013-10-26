@@ -11,20 +11,20 @@ func assert(c bool) bool {
 
 func main() {
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Return a function object from JavaScript
-	if value := runtime.Eval("function(a,b){ return a+b; }"); assert(value != nil) {
+	if value := context.Eval("function(a,b){ return a+b; }"); assert(value != nil) {
 		// Type check
 		assert(value.IsFunction())
 
 		// Call
 		value1 := value.Call([]*js.Value{
-			runtime.Int(10),
-			runtime.Int(20),
+			context.Int(10),
+			context.Int(20),
 		})
 
 		// Result check
@@ -37,13 +37,13 @@ func main() {
 	}
 
 	// Define a function that return an object with function from Go
-	ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
-			obj := rt.NewObject()
+	ok := context.DefineFunction("get_data",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			obj := cx.NewObject()
 
 			ok := obj.DefineFunction("abc",
-				func(rt *js.Runtime, args []*js.Value) *js.Value {
-					return rt.Int(100)
+				func(cx *js.Context, args []*js.Value) *js.Value {
+					return cx.Int(100)
 				},
 			)
 
@@ -55,7 +55,7 @@ func main() {
 
 	assert(ok)
 
-	if value := runtime.Eval(`
+	if value := context.Eval(`
 		a = get_data(); 
 		a.abc();
 	`); assert(value != nil) {

@@ -69,41 +69,38 @@ import js "github.com/realint/monkey"
 
 func main() {
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Evaluate script
-	if value := runtime.Eval("'Hello ' + 'World!'"); value != nil {
-		println(value.ToString())
-	}
+	value := context.Eval("'Hello ' + 'World!'")
+	println(value.ToString())
 
 	// Define a function and call it
-	runtime.DefineFunction("println",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
+	context.DefineFunction("println",
+		func(cx *js.Context, args []*js.Value) *js.Value {
 			for i := 0; i < len(args); i++ {
 				fmt.Print(args[i])
 			}
 			fmt.Println()
-			return runtime.Void()
+			return cx.Void()
 		},
 	)
-
-	runtime.Eval("println('Hello Function!')")
+	context.Eval("println('Hello Function!')")
 
 	// Compile once, run many times
-	if script := runtime.Compile(
+	script := context.Compile(
 		"println('Hello Compiler!')",
 		"<no name>", 0,
-	); script != nil {
-		script.Execute()
-		script.Execute()
-		script.Execute()
-	}
+	)
+	script.Execute()
+	script.Execute()
+	script.Execute()
 
 	// Error handler
-	runtime.SetErrorReporter(func(report *js.ErrorReport) {
+	context.SetErrorReporter(func(report *js.ErrorReport) {
 		println(fmt.Sprintf(
 			"%s:%d: %s",
 			report.FileName, report.LineNum, report.Message,
@@ -112,9 +109,7 @@ func main() {
 			println("\t", report.LineBuf)
 		}
 	})
-
-	// Trigger an error
-	runtime.Eval("abc()")
+	context.Eval("not_exists()")
 }
 ```
 This code will output:
@@ -125,7 +120,7 @@ Hello Function!
 Hello Compiler!
 Hello Compiler!
 Hello Compiler!
-Eval():0: ReferenceError: abc is not defined
+Eval():0: ReferenceError: not_exists is not defined
 ```
 
 Value
@@ -146,20 +141,20 @@ func assert(c bool) bool {
 }
 
 func main() {
-	// Create Script Runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	// Create script Runtime
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// String
-	if value := runtime.Eval("'abc'"); assert(value != nil) {
+	if value := context.Eval("'abc'"); assert(value != nil) {
 		assert(value.IsString())
 		assert(value.ToString() == "abc")
 	}
 
 	// Int
-	if value := runtime.Eval("123456789"); assert(value != nil) {
+	if value := context.Eval("123456789"); assert(value != nil) {
 		assert(value.IsInt())
 
 		if value1, ok1 := value.ToInt(); assert(ok1) {
@@ -168,7 +163,7 @@ func main() {
 	}
 
 	// Number
-	if value := runtime.Eval("12345.6789"); assert(value != nil) {
+	if value := context.Eval("12345.6789"); assert(value != nil) {
 		assert(value.IsNumber())
 
 		if value1, ok1 := value.ToNumber(); assert(ok1) {
@@ -197,20 +192,20 @@ func assert(c bool) bool {
 
 func main() {
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Return a function object from JavaScript
-	if value := runtime.Eval("function(a,b){ return a+b; }"); assert(value != nil) {
+	if value := context.Eval("function(a,b){ return a+b; }"); assert(value != nil) {
 		// Type check
 		assert(value.IsFunction())
 
 		// Call
 		value1 := value.Call([]*js.Value{
-			runtime.Int(10),
-			runtime.Int(20),
+			context.Int(10),
+			context.Int(20),
 		})
 
 		// Result check
@@ -223,13 +218,13 @@ func main() {
 	}
 
 	// Define a function that return an object with function from Go
-	ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
-			obj := rt.NewObject()
+	ok := context.DefineFunction("get_data",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			obj := cx.NewObject()
 
 			ok := obj.DefineFunction("abc",
-				func(rt *js.Runtime, args []*js.Value) *js.Value {
-					return rt.Int(100)
+				func(cx *js.Context, args []*js.Value) *js.Value {
+					return cx.Int(100)
 				},
 			)
 
@@ -241,7 +236,7 @@ func main() {
 
 	assert(ok)
 
-	if value := runtime.Eval(`
+	if value := context.Eval(`
 		a = get_data(); 
 		a.abc();
 	`); assert(value != nil) {
@@ -273,13 +268,13 @@ func assert(c bool) bool {
 
 func main() {
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Return an array from JavaScript
-	if value := runtime.Eval("[123, 456];"); assert(value != nil) {
+	if value := context.Eval("[123, 456];"); assert(value != nil) {
 		// Check type
 		assert(value.IsArray())
 		array := value.ToArray()
@@ -310,15 +305,15 @@ func main() {
 	}
 
 	// Return an array from Go
-	if ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
-			array := rt.NewArray()
+	if ok := context.DefineFunction("get_data",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			array := cx.NewArray()
 			array.SetInt(0, 100)
 			array.SetInt(1, 200)
 			return array.ToValue()
 		},
 	); assert(ok) {
-		if value := runtime.Eval("get_data()"); assert(value != nil) {
+		if value := context.Eval("get_data()"); assert(value != nil) {
 			// Check type
 			assert(value.IsArray())
 			array := value.ToArray()
@@ -360,13 +355,13 @@ func assert(c bool) bool {
 
 func main() {
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Return an object from JavaScript
-	if value := runtime.Eval("x={a:123}"); assert(value != nil) {
+	if value := context.Eval("x={a:123}"); assert(value != nil) {
 		// Type check
 		assert(value.IsObject())
 		obj := value.ToObject()
@@ -384,9 +379,9 @@ func main() {
 	}
 
 	// Return and object From Go
-	ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
-			obj := rt.NewObject()
+	ok := context.DefineFunction("get_data",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			obj := cx.NewObject()
 			obj.SetInt("abc", 100)
 			obj.SetInt("def", 200)
 			return obj.ToValue()
@@ -395,7 +390,7 @@ func main() {
 
 	assert(ok)
 
-	if value := runtime.Eval("get_data()"); assert(value != nil) {
+	if value := context.Eval("get_data()"); assert(value != nil) {
 		// Type check
 		assert(value.IsObject())
 		obj := value.ToObject()
@@ -432,25 +427,25 @@ func assert(c bool) bool {
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Return Object With Property Getter And Setter From Go
-	ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
-			obj := rt.NewObject()
+	ok := context.DefineFunction("get_data",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			obj := cx.NewObject()
 
 			// Define the property 'abc' with getter and setter
 			var propValue int32 = 123
 			ok := obj.DefineProperty("abc",
 				// Init value
-				runtime.Int(propValue),
+				cx.Int(propValue),
 				// T getter callback called each time
 				// JavaScript code accesses the property's value
 				func(o *js.Object) *js.Value {
-					return o.Runtime().Int(propValue)
+					return cx.Int(propValue)
 				},
 				// The setter callback is called each time
 				// JavaScript code assigns to the property
@@ -470,7 +465,7 @@ func main() {
 
 	assert(ok)
 
-	if value := runtime.Eval(`
+	if value := context.Eval(`
 		a = get_data();
 		v1 = a.abc;
 		a.abc = 456;
@@ -522,18 +517,18 @@ func main() {
 	runtime.GOMAXPROCS(20)
 
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
 
-	runtime.DefineFunction("println",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
+	// Create script context
+	context := runtime.NewContext()
+
+	context.DefineFunction("println",
+		func(cx *js.Context, args []*js.Value) *js.Value {
 			for i := 0; i < len(args); i++ {
 				fmt.Print(args[i])
 			}
 			fmt.Println()
-			return runtime.Void()
+			return cx.Void()
 		},
 	)
 
@@ -544,7 +539,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			for j := 0; j < 1000; j++ {
-				v := runtime.Eval("println('Hello World!')")
+				v := context.Eval("println('Hello World!')")
 				assert(v != nil)
 			}
 			wg.Done()

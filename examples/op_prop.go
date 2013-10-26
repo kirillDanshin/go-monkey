@@ -11,25 +11,25 @@ func assert(c bool) bool {
 
 func main() {
 	// Create Script Runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Return Object With Property Getter And Setter From Go
-	ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, args []*js.Value) *js.Value {
-			obj := rt.NewObject()
+	ok := context.DefineFunction("get_data",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			obj := cx.NewObject()
 
 			// Define the property 'abc' with getter and setter
 			var propValue int32 = 123
 			ok := obj.DefineProperty("abc",
 				// Init value
-				runtime.Int(propValue),
+				cx.Int(propValue),
 				// T getter callback called each time
 				// JavaScript code accesses the property's value
 				func(o *js.Object) *js.Value {
-					return o.Runtime().Int(propValue)
+					return cx.Int(propValue)
 				},
 				// The setter callback is called each time
 				// JavaScript code assigns to the property
@@ -49,7 +49,7 @@ func main() {
 
 	assert(ok)
 
-	if value := runtime.Eval(`
+	if value := context.Eval(`
 		a = get_data();
 		v1 = a.abc;
 		a.abc = 456;

@@ -10,33 +10,33 @@ import (
 
 // JavaScript Array
 type Array struct {
-	rt  *Runtime
+	cx  *Context
 	obj *C.JSObject
 }
 
 // See newObject()
-func newArray(rt *Runtime, obj *C.JSObject) *Array {
-	result := &Array{rt, obj}
+func newArray(cx *Context, obj *C.JSObject) *Array {
+	result := &Array{cx, obj}
 
-	C.JS_AddObjectRoot(rt.cx, &result.obj)
+	C.JS_AddObjectRoot(cx.jscx, &result.obj)
 
 	runtime.SetFinalizer(result, func(a *Array) {
-		C.JS_RemoveObjectRoot(a.rt.cx, &a.obj)
+		C.JS_RemoveObjectRoot(a.cx.jscx, &a.obj)
 	})
 
 	return result
 }
 
 func (a *Array) ToValue() *Value {
-	return newValue(a.rt, C.OBJECT_TO_JSVAL(a.obj))
+	return newValue(a.cx, C.OBJECT_TO_JSVAL(a.obj))
 }
 
 func (a *Array) GetLength() int {
-	a.rt.lock()
-	defer a.rt.unlock()
+	a.cx.rt.lock()
+	defer a.cx.rt.unlock()
 
 	var l C.jsuint
-	if C.JS_GetArrayLength(a.rt.cx, a.obj, &l) == C.JS_TRUE {
+	if C.JS_GetArrayLength(a.cx.jscx, a.obj, &l) == C.JS_TRUE {
 		return int(l)
 	}
 
@@ -44,29 +44,29 @@ func (a *Array) GetLength() int {
 }
 
 func (a *Array) SetLength(length int) bool {
-	a.rt.lock()
-	defer a.rt.unlock()
+	a.cx.rt.lock()
+	defer a.cx.rt.unlock()
 
-	return C.JS_SetArrayLength(a.rt.cx, a.obj, C.jsuint(length)) == C.JS_TRUE
+	return C.JS_SetArrayLength(a.cx.jscx, a.obj, C.jsuint(length)) == C.JS_TRUE
 }
 
 func (a *Array) GetElement(index int) *Value {
-	a.rt.lock()
-	defer a.rt.unlock()
+	a.cx.rt.lock()
+	defer a.cx.rt.unlock()
 
 	var rval C.jsval
-	if C.JS_GetElement(a.rt.cx, a.obj, C.jsint(index), &rval) == C.JS_TRUE {
-		return newValue(a.rt, rval)
+	if C.JS_GetElement(a.cx.jscx, a.obj, C.jsint(index), &rval) == C.JS_TRUE {
+		return newValue(a.cx, rval)
 	}
 
 	return nil
 }
 
 func (a *Array) SetElement(index int, v *Value) bool {
-	a.rt.lock()
-	defer a.rt.unlock()
+	a.cx.rt.lock()
+	defer a.cx.rt.unlock()
 
-	return C.JS_SetElement(a.rt.cx, a.obj, C.jsint(index), &v.val) == C.JS_TRUE
+	return C.JS_SetElement(a.cx.jscx, a.obj, C.jsint(index), &v.val) == C.JS_TRUE
 }
 
 /*
@@ -81,7 +81,7 @@ func (a *Array) GetInt(index int) (int32, bool) {
 }
 
 func (a *Array) SetInt(index int, v int32) bool {
-	return a.SetElement(index, a.rt.Int(v))
+	return a.SetElement(index, a.cx.Int(v))
 }
 
 func (a *Array) GetNumber(index int) (float64, bool) {
@@ -92,7 +92,7 @@ func (a *Array) GetNumber(index int) (float64, bool) {
 }
 
 func (a *Array) SetNumber(index int, v float64) bool {
-	return a.SetElement(index, a.rt.Number(v))
+	return a.SetElement(index, a.cx.Number(v))
 }
 
 func (a *Array) GetBoolean(index int) (bool, bool) {
@@ -103,7 +103,7 @@ func (a *Array) GetBoolean(index int) (bool, bool) {
 }
 
 func (a *Array) SetBoolean(index int, v bool) bool {
-	return a.SetElement(index, a.rt.Boolean(v))
+	return a.SetElement(index, a.cx.Boolean(v))
 }
 
 func (a *Array) GetString(index int) (string, bool) {
@@ -114,7 +114,7 @@ func (a *Array) GetString(index int) (string, bool) {
 }
 
 func (a *Array) SetString(index int, v string) bool {
-	return a.SetElement(index, a.rt.String(v))
+	return a.SetElement(index, a.cx.String(v))
 }
 
 func (a *Array) GetObject(index int) *Object {
