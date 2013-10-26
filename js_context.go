@@ -6,6 +6,7 @@ package monkey
 import "C"
 import (
 	"runtime"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -14,15 +15,14 @@ type Context struct {
 	rt            *Runtime
 	jscx          *C.JSContext
 	jsglobal      *C.JSObject
-	callbacks     map[string]JsFunc
+	funcs         map[string]JsFunc
 	errorReporter ErrorReporter
+	disposed      int64
 }
 
 func (r *Runtime) NewContext() *Context {
 	c := new(Context)
-
 	c.rt = r
-	c.callbacks = make(map[string]JsFunc)
 
 	c.jscx = C.JS_NewContext(r.jsrt, 8192)
 	if c.jscx == nil {
@@ -31,7 +31,6 @@ func (r *Runtime) NewContext() *Context {
 
 	C.JS_SetOptions(c.jscx, C.JSOPTION_VAROBJFIX|C.JSOPTION_JIT|C.JSOPTION_METHODJIT)
 	C.JS_SetVersion(c.jscx, C.JSVERSION_LATEST)
-	C.JS_SetErrorReporter(c.jscx, C.the_error_callback)
 
 	c.jsglobal = C.JS_NewCompartmentAndGlobalObject(c.jscx, &C.global_class, nil)
 
@@ -43,10 +42,17 @@ func (r *Runtime) NewContext() *Context {
 	C.JS_SetContextPrivate(c.jscx, unsafe.Pointer(c))
 
 	runtime.SetFinalizer(c, func(c *Context) {
-		C.JS_DestroyContext(c.jscx)
+		c.Dispose()
 	})
 
 	return c
+}
+
+// Free by manual
+func (c *Context) Dispose() {
+	if atomic.CompareAndSwapInt64(&c.disposed, 0, 1) {
+		C.JS_DestroyContext(c.jscx)
+	}
 }
 
 type ErrorReporter func(report *ErrorReport)
@@ -88,6 +94,9 @@ func call_error_func(c unsafe.Pointer, message *C.char, report *C.JSErrorReport)
 
 // Set a error reporter
 func (c *Context) SetErrorReporter(reporter ErrorReporter) {
+	if c.errorReporter == nil {
+		C.JS_SetErrorReporter(c.jscx, C.the_error_callback)
+	}
 	c.errorReporter = reporter
 }
 
@@ -115,8 +124,16 @@ func (c *Context) Eval(script string) *Value {
 
 // Compiled Script
 type Script struct {
-	cx  *Context
-	obj *C.JSObject
+	cx       *Context
+	obj      *C.JSObject
+	disposed int64
+}
+
+// Free by manual
+func (s *Script) Dispose() {
+	if atomic.CompareAndSwapInt64(&s.disposed, 0, 1) {
+		C.JS_RemoveObjectRoot(s.cx.jscx, &s.obj)
+	}
 }
 
 func (s *Script) Context() *Context {
@@ -140,6 +157,19 @@ func (s *Script) Execute() *Value {
 	return nil
 }
 
+// Execute the script
+func (s *Script) ExecuteIn(cx *Context) *Value {
+	cx.rt.lock()
+	defer cx.rt.unlock()
+
+	var rval C.jsval
+	if C.JS_ExecuteScript(cx.jscx, cx.jsglobal, s.obj, &rval) == C.JS_TRUE {
+		return newValue(cx, rval)
+	}
+
+	return nil
+}
+
 // Compile JavaScript
 // When you need run a script many times, you can use this to avoid dynamic compile.
 func (c *Context) Compile(code, filename string, lineno int) *Script {
@@ -155,12 +185,12 @@ func (c *Context) Compile(code, filename string, lineno int) *Script {
 	var obj = C.JS_CompileScript(c.jscx, c.jsglobal, ccode, C.size_t(len(code)), cfilename, C.uintN(lineno))
 
 	if obj != nil {
-		script := &Script{c, obj}
+		script := &Script{c, obj, 0}
 
 		C.JS_AddObjectRoot(c.jscx, &script.obj)
 
 		runtime.SetFinalizer(script, func(s *Script) {
-			C.JS_RemoveObjectRoot(s.cx.jscx, &s.obj)
+			s.Dispose()
 		})
 
 		return script
@@ -181,7 +211,7 @@ func call_go_func(c unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.J
 		argv[i] = newValue(context, C.GET_ARGV(context.jscx, vp, C.int(i)))
 	}
 
-	var result = context.callbacks[C.GoString(name)](context, argv)
+	var result = context.funcs[C.GoString(name)](context, argv)
 
 	if result != nil {
 		C.SET_RVAL(context.jscx, vp, result.val)
@@ -205,7 +235,11 @@ func (c *Context) DefineFunction(name string, callback JsFunc) bool {
 		return false
 	}
 
-	c.callbacks[name] = callback
+	if c.funcs == nil {
+		c.funcs = make(map[string]JsFunc)
+	}
+
+	c.funcs[name] = callback
 
 	return true
 }

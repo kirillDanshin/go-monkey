@@ -11,6 +11,7 @@ import (
 	"github.com/realint/monkey/goid"
 	"runtime"
 	"sync"
+	"sync/atomic"
 )
 
 // JavaScript Runtime
@@ -19,6 +20,7 @@ type Runtime struct {
 	lockBy    int32
 	lockLevel int
 	mutex     sync.Mutex
+	disposed  int64
 }
 
 // Initializes the JavaScript runtime.
@@ -32,13 +34,20 @@ func NewRuntime(maxbytes uint32) *Runtime {
 	}
 
 	runtime.SetFinalizer(r, func(r *Runtime) {
-		C.JS_DestroyRuntime(r.jsrt)
+		r.Dispose()
 	})
 
 	return r
 }
 
-// Because we can't prevent Go to execute a JavaScript that maybe will execute another JavaScript by invoke Go function.
+// Free by manual
+func (r *Runtime) Dispose() {
+	if atomic.CompareAndSwapInt64(&r.disposed, 0, 1) {
+		C.JS_DestroyRuntime(r.jsrt)
+	}
+}
+
+// Because we can't prevent Go execute a JavaScript that execute another JavaScript by call Go defined function.
 // Like this: runtime.Eval("eval('1 + 1')")
 // So I designed this lock mechanism to let runtime can lock by same goroutine many times.
 func (r *Runtime) lock() {
