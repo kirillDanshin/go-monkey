@@ -11,7 +11,7 @@ import (
 
 // JavaScript Object
 type Object struct {
-	rt      *Runtime
+	cx      *Context
 	obj     *C.JSObject
 	funcs   map[string]JsFunc
 	getters map[string]JsPropertyGetter
@@ -20,51 +20,56 @@ type Object struct {
 
 // Add the JSObject to the garbage collector's root set.
 // See: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/JSAPI_reference/JS_AddRoot
-func newObject(rt *Runtime, obj *C.JSObject) *Object {
-	result := &Object{rt, obj, nil, nil, nil}
+func newObject(cx *Context, obj *C.JSObject) *Object {
+	result := &Object{cx, obj, nil, nil, nil}
 
-	C.JS_AddObjectRoot(rt.cx, &result.obj)
+	C.JS_AddObjectRoot(cx.jscx, &result.obj)
 
 	runtime.SetFinalizer(result, func(o *Object) {
-		C.JS_RemoveObjectRoot(o.rt.cx, &o.obj)
+		C.JS_RemoveObjectRoot(o.cx.jscx, &o.obj)
 	})
 
 	// User defined property and function object use this to find callback.
-	C.JS_SetPrivate(rt.cx, result.obj, unsafe.Pointer(result))
+	C.JS_SetPrivate(cx.jscx, result.obj, unsafe.Pointer(result))
 
 	return result
 }
 
 func (o *Object) Runtime() *Runtime {
-	return o.rt
+	return o.cx.rt
+}
+
+func (o *Object) Context() *Context {
+	return o.cx
 }
 
 func (o *Object) ToValue() *Value {
-	return newValue(o.rt, C.OBJECT_TO_JSVAL(o.obj))
+	return newValue(o.cx, C.OBJECT_TO_JSVAL(o.obj))
 }
 
-func (o *Object) GetProperty(name string) (*Value, bool) {
-	o.rt.lock()
-	defer o.rt.unlock()
+func (o *Object) GetProperty(name string) *Value {
+	o.cx.rt.lock()
+	defer o.cx.rt.unlock()
 
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	r := o.rt.Void()
-	if C.JS_GetProperty(o.rt.cx, o.obj, cname, &r.val) == C.JS_TRUE {
-		return r, true
+	var rval C.jsval
+	if C.JS_GetProperty(o.cx.jscx, o.obj, cname, &rval) == C.JS_TRUE {
+		return newValue(o.cx, rval)
 	}
-	return r, false
+
+	return nil
 }
 
 func (o *Object) SetProperty(name string, v *Value) bool {
-	o.rt.lock()
-	defer o.rt.unlock()
+	o.cx.rt.lock()
+	defer o.cx.rt.unlock()
 
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	return C.JS_SetProperty(o.rt.cx, o.obj, cname, &v.val) == C.JS_TRUE
+	return C.JS_SetProperty(o.cx.jscx, o.obj, cname, &v.val) == C.JS_TRUE
 }
 
 type JsPropertyAttrs uint
@@ -76,14 +81,14 @@ const (
 	JSPROP_PERMANENT = C.JSPROP_PERMANENT // The property cannot be deleted.
 )
 
-type JsPropertyGetter func(o *Object) (*Value, bool)
-type JsPropertySetter func(o *Object, v *Value) bool
+type JsPropertyGetter func(o *Object) *Value
+type JsPropertySetter func(o *Object, v *Value)
 
 //export call_go_getter
 func call_go_getter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 	o := (*Object)(obj)
 	if o.getters != nil {
-		if v, ok := o.getters[C.GoString(name)](o); ok {
+		if v := o.getters[C.GoString(name)](o); v != nil {
 			*val = v.val
 			return C.JS_TRUE
 		}
@@ -95,18 +100,17 @@ func call_go_getter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 func call_go_setter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 	o := (*Object)(obj)
 	if o.setters != nil {
-		if o.setters[C.GoString(name)](o, newValue(o.rt, *val)) {
-			return C.JS_TRUE
-		}
+		o.setters[C.GoString(name)](o, newValue(o.cx, *val))
+		return C.JS_TRUE
 	}
 	return C.JS_FALSE
 }
 
 func (o *Object) DefineProperty(name string, value *Value, getter JsPropertyGetter, setter JsPropertySetter, attrs JsPropertyAttrs) bool {
-	o.rt.lock()
-	defer o.rt.unlock()
+	o.cx.rt.lock()
+	defer o.cx.rt.unlock()
 
-	if C.JS_IsArrayObject(o.rt.cx, o.obj) == C.JS_TRUE {
+	if C.JS_IsArrayObject(o.cx.jscx, o.obj) == C.JS_TRUE {
 		panic("Could't define property on array.")
 	}
 
@@ -116,11 +120,11 @@ func (o *Object) DefineProperty(name string, value *Value, getter JsPropertyGett
 	var r C.JSBool
 
 	if getter != nil && setter != nil {
-		r = C.JS_DefineProperty(o.rt.cx, o.obj, cname, value.val, C.the_go_getter_callback, C.the_go_setter_callback, C.uintN(uint(attrs))|C.JSPROP_SHARED)
+		r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, C.the_go_getter_callback, C.the_go_setter_callback, C.uintN(uint(attrs))|C.JSPROP_SHARED)
 	} else if getter != nil && setter == nil {
-		r = C.JS_DefineProperty(o.rt.cx, o.obj, cname, value.val, C.the_go_getter_callback, nil, C.uintN(uint(attrs)))
+		r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, C.the_go_getter_callback, nil, C.uintN(uint(attrs)))
 	} else if getter == nil && setter != nil {
-		r = C.JS_DefineProperty(o.rt.cx, o.obj, cname, value.val, nil, C.the_go_setter_callback, C.uintN(uint(attrs)))
+		r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, nil, C.the_go_setter_callback, C.uintN(uint(attrs)))
 	} else {
 		panic("The getter and setter both nil")
 	}
@@ -153,13 +157,13 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 	var argv = make([]*Value, int(argc))
 
 	for i := 0; i < len(argv); i++ {
-		argv[i] = newValue(o.rt, C.GET_ARGV(o.rt.cx, vp, C.int(i)))
+		argv[i] = newValue(o.cx, C.GET_ARGV(o.cx.jscx, vp, C.int(i)))
 	}
 
-	var result, ok = o.funcs[C.GoString(name)](o.rt, argv)
+	var result = o.funcs[C.GoString(name)](o.cx, argv)
 
-	if ok {
-		C.SET_RVAL(o.rt.cx, vp, result.val)
+	if result != nil {
+		C.SET_RVAL(o.cx.jscx, vp, result.val)
 		return C.JS_TRUE
 	}
 
@@ -170,13 +174,13 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 // @name     The function name
 // @callback The function implement
 func (o *Object) DefineFunction(name string, callback JsFunc) bool {
-	o.rt.lock()
-	defer o.rt.unlock()
+	o.cx.rt.lock()
+	defer o.cx.rt.unlock()
 
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
 
-	if C.JS_DefineFunction(o.rt.cx, o.obj, cname, C.the_go_obj_func_callback, 0, 0) == nil {
+	if C.JS_DefineFunction(o.cx.jscx, o.obj, cname, C.the_go_obj_func_callback, 0, 0) == nil {
 		return false
 	}
 
@@ -187,4 +191,74 @@ func (o *Object) DefineFunction(name string, callback JsFunc) bool {
 	o.funcs[name] = callback
 
 	return true
+}
+
+/*
+Utilities
+*/
+
+func (o *Object) GetInt(name string) (int32, bool) {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToInt()
+	}
+	return 0, false
+}
+
+func (o *Object) SetInt(name string, v int32) bool {
+	return o.SetProperty(name, o.cx.Int(v))
+}
+
+func (o *Object) GetNumber(name string) (float64, bool) {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToNumber()
+	}
+	return 0, false
+}
+
+func (o *Object) SetNumber(name string, v float64) bool {
+	return o.SetProperty(name, o.cx.Number(v))
+}
+
+func (o *Object) GetBoolean(name string) (bool, bool) {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToBoolean()
+	}
+	return false, false
+}
+
+func (o *Object) SetBoolean(name string, v bool) bool {
+	return o.SetProperty(name, o.cx.Boolean(v))
+}
+
+func (o *Object) GetString(name string) (string, bool) {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToString(), true
+	}
+	return "", false
+}
+
+func (o *Object) SetString(name string, v string) bool {
+	return o.SetProperty(name, o.cx.String(v))
+}
+
+func (o *Object) GetObject(name string) *Object {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToObject()
+	}
+	return nil
+}
+
+func (o *Object) SetObject(name string, o2 *Object) bool {
+	return o.SetProperty(name, o2.ToValue())
+}
+
+func (o *Object) GetArray(name string) *Array {
+	if v := o.GetProperty(name); v != nil {
+		return v.ToArray()
+	}
+	return nil
+}
+
+func (o *Object) SetArray(name string, o2 *Array) bool {
+	return o.SetProperty(name, o2.ToValue())
 }

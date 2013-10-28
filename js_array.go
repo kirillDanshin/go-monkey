@@ -6,88 +6,135 @@ package monkey
 import "C"
 import (
 	"runtime"
-	"unsafe"
 )
 
 // JavaScript Array
 type Array struct {
-	rt  *Runtime
+	cx  *Context
 	obj *C.JSObject
 }
 
 // See newObject()
-func newArray(rt *Runtime, obj *C.JSObject) *Array {
-	result := &Array{rt, obj}
+func newArray(cx *Context, obj *C.JSObject) *Array {
+	result := &Array{cx, obj}
 
-	C.JS_AddObjectRoot(rt.cx, &result.obj)
+	C.JS_AddObjectRoot(cx.jscx, &result.obj)
 
-	runtime.SetFinalizer(result, func(o *Array) {
-		C.JS_RemoveObjectRoot(o.rt.cx, &o.obj)
+	runtime.SetFinalizer(result, func(a *Array) {
+		C.JS_RemoveObjectRoot(a.cx.jscx, &a.obj)
 	})
 
 	return result
 }
 
-func (o *Array) ToValue() *Value {
-	return newValue(o.rt, C.OBJECT_TO_JSVAL(o.obj))
+func (a *Array) ToValue() *Value {
+	return newValue(a.cx, C.OBJECT_TO_JSVAL(a.obj))
 }
 
-func (o *Array) GetLength() (int, bool) {
-	o.rt.lock()
-	defer o.rt.unlock()
+func (a *Array) GetLength() int {
+	a.cx.rt.lock()
+	defer a.cx.rt.unlock()
 
 	var l C.jsuint
-	if C.JS_GetArrayLength(o.rt.cx, o.obj, &l) == C.JS_TRUE {
-		return int(l), true
+	if C.JS_GetArrayLength(a.cx.jscx, a.obj, &l) == C.JS_TRUE {
+		return int(l)
+	}
+
+	return -1
+}
+
+func (a *Array) SetLength(length int) bool {
+	a.cx.rt.lock()
+	defer a.cx.rt.unlock()
+
+	return C.JS_SetArrayLength(a.cx.jscx, a.obj, C.jsuint(length)) == C.JS_TRUE
+}
+
+func (a *Array) GetElement(index int) *Value {
+	a.cx.rt.lock()
+	defer a.cx.rt.unlock()
+
+	var rval C.jsval
+	if C.JS_GetElement(a.cx.jscx, a.obj, C.jsint(index), &rval) == C.JS_TRUE {
+		return newValue(a.cx, rval)
+	}
+
+	return nil
+}
+
+func (a *Array) SetElement(index int, v *Value) bool {
+	a.cx.rt.lock()
+	defer a.cx.rt.unlock()
+
+	return C.JS_SetElement(a.cx.jscx, a.obj, C.jsint(index), &v.val) == C.JS_TRUE
+}
+
+/*
+Utilities
+*/
+
+func (a *Array) GetInt(index int) (int32, bool) {
+	if v := a.GetElement(index); v != nil {
+		return v.ToInt()
 	}
 	return 0, false
 }
 
-func (o *Array) SetLength(length int) bool {
-	o.rt.lock()
-	defer o.rt.unlock()
-
-	return C.JS_SetArrayLength(o.rt.cx, o.obj, C.jsuint(length)) == C.JS_TRUE
+func (a *Array) SetInt(index int, v int32) bool {
+	return a.SetElement(index, a.cx.Int(v))
 }
 
-func (o *Array) GetElement(index int) (*Value, bool) {
-	o.rt.lock()
-	defer o.rt.unlock()
-
-	r := o.rt.Void()
-	if C.JS_GetElement(o.rt.cx, o.obj, C.jsint(index), &r.val) == C.JS_TRUE {
-		return r, true
+func (a *Array) GetNumber(index int) (float64, bool) {
+	if v := a.GetElement(index); v != nil {
+		return v.ToNumber()
 	}
-	return r, false
+	return 0, false
 }
 
-func (o *Array) SetElement(index int, v *Value) bool {
-	o.rt.lock()
-	defer o.rt.unlock()
-
-	return C.JS_SetElement(o.rt.cx, o.obj, C.jsint(index), &v.val) == C.JS_TRUE
+func (a *Array) SetNumber(index int, v float64) bool {
+	return a.SetElement(index, a.cx.Number(v))
 }
 
-func (o *Array) GetProperty(name string) (*Value, bool) {
-	o.rt.lock()
-	defer o.rt.unlock()
-
-	cname := C.CString(name)
-	defer C.free(unsafe.Pointer(cname))
-
-	r := o.rt.Void()
-	if C.JS_GetProperty(o.rt.cx, o.obj, cname, &r.val) == C.JS_TRUE {
-		return r, true
+func (a *Array) GetBoolean(index int) (bool, bool) {
+	if v := a.GetElement(index); v != nil {
+		return v.ToBoolean()
 	}
-	return r, false
+	return false, false
 }
 
-func (o *Array) SetProperty(name string, v *Value) bool {
-	o.rt.lock()
-	defer o.rt.unlock()
+func (a *Array) SetBoolean(index int, v bool) bool {
+	return a.SetElement(index, a.cx.Boolean(v))
+}
 
-	cname := C.CString(name)
-	defer C.free(unsafe.Pointer(cname))
+func (a *Array) GetString(index int) (string, bool) {
+	if v := a.GetElement(index); v != nil {
+		return v.ToString(), true
+	}
+	return "", false
+}
 
-	return C.JS_SetProperty(o.rt.cx, o.obj, cname, &v.val) == C.JS_TRUE
+func (a *Array) SetString(index int, v string) bool {
+	return a.SetElement(index, a.cx.String(v))
+}
+
+func (a *Array) GetObject(index int) *Object {
+	if v := a.GetElement(index); v != nil {
+		return v.ToObject()
+	}
+	return nil
+}
+
+func (a *Array) SetObject(index int, o *Object) bool {
+	return a.SetElement(index, o.ToValue())
+}
+
+func (a *Array) GetArray(index int) *Array {
+	if v := a.GetElement(index); v != nil {
+		return v.ToArray()
+	}
+	return nil
+}
+
+func (a *Array) SetArray(index int, o *Array) bool {
+	return a.SetElement(index, o.ToValue())
 }

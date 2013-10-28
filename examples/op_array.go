@@ -11,79 +11,69 @@ func assert(c bool) bool {
 
 func main() {
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Return an array from JavaScript
-	if value, ok := runtime.Eval("[123, 456];"); assert(ok) {
-		// Type check
+	if value := context.Eval("[123, 456];"); assert(value != nil) {
+		// Check type
 		assert(value.IsArray())
-		array := value.Array()
+		array := value.ToArray()
 		assert(array != nil)
 
-		// Length check
-		length, ok := array.GetLength()
-		assert(ok)
-		assert(length == 2)
+		// Check length
+		assert(array.GetLength() == 2)
 
-		// Get first item
-		value1, ok1 := array.GetElement(0)
+		// Check first item
+		value1, ok1 := array.GetInt(0)
 		assert(ok1)
-		assert(value1.IsInt())
-		assert(value1.Int() == 123)
+		assert(value1 == 123)
 
-		// Get second item
-		value2, ok2 := array.GetElement(1)
+		// Check second item
+		value2, ok2 := array.GetInt(1)
 		assert(ok2)
-		assert(value2.IsInt())
-		assert(value2.Int() == 456)
+		assert(value2 == 456)
 
 		// Set first item
-		assert(array.SetElement(0, runtime.Int(789)))
-		value3, ok3 := array.GetElement(0)
+		assert(array.SetInt(0, 789))
+		value3, ok3 := array.GetInt(0)
 		assert(ok3)
-		assert(value3.IsInt())
-		assert(value3.Int() == 789)
+		assert(value3 == 789)
 
 		// Grows
 		assert(array.SetLength(3))
-		length2, _ := array.GetLength()
-		assert(length2 == 3)
+		assert(array.GetLength() == 3)
 	}
 
 	// Return an array from Go
-	if ok := runtime.DefineFunction("get_data",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
-			array := rt.NewArray()
-			array.SetElement(0, rt.Int(100))
-			array.SetElement(1, rt.Int(200))
-			return array.ToValue(), true
+	if ok := context.DefineFunction("get_data",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			array := cx.NewArray()
+			array.SetInt(0, 100)
+			array.SetInt(1, 200)
+			return array.ToValue()
 		},
 	); assert(ok) {
-		if value, ok := runtime.Eval("get_data()"); assert(ok) {
-			// Type check
+		if value := context.Eval("get_data()"); assert(value != nil) {
+			// Check type
 			assert(value.IsArray())
-			array := value.Array()
+			array := value.ToArray()
 			assert(array != nil)
 
-			// Length check
-			length, ok := array.GetLength()
-			assert(ok)
-			assert(length == 2)
+			// Check length
+			assert(array.GetLength() == 2)
 
-			// Get first item
-			value1, ok1 := array.GetElement(0)
+			// Check first item
+			value1, ok1 := array.GetInt(0)
 			assert(ok1)
-			assert(value1.IsInt())
-			assert(value1.Int() == 100)
+			assert(value1 == 100)
 
-			// Get second item
-			value2, ok2 := array.GetElement(1)
+			// Check second item
+			value2, ok2 := array.GetInt(1)
 			assert(ok2)
-			assert(value2.IsInt())
-			assert(value2.Int() == 200)
+			assert(value2 == 200)
 		}
 	}
 }

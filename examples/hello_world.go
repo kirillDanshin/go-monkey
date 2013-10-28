@@ -5,46 +5,38 @@ import js "github.com/realint/monkey"
 
 func main() {
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
 
 	// Evaluate script
-	if value, ok := runtime.Eval("'Hello ' + 'World!'"); ok {
-		println(value.ToString())
-	}
+	value := context.Eval("'Hello ' + 'World!'")
+	println(value.ToString())
 
-	// Call built-in function
-	runtime.Eval("println('Hello Built-in Function!')")
+	// Define a function and call it
+	context.DefineFunction("println",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			for i := 0; i < len(args); i++ {
+				fmt.Print(args[i])
+			}
+			fmt.Println()
+			return cx.Void()
+		},
+	)
+	context.Eval("println('Hello Function!')")
 
 	// Compile once, run many times
-	if script := runtime.Compile(
+	script := context.Compile(
 		"println('Hello Compiler!')",
 		"<no name>", 0,
-	); script != nil {
-		script.Execute()
-		script.Execute()
-		script.Execute()
-	}
-
-	// Define a function
-	if runtime.DefineFunction("add",
-		func(rt *js.Runtime, argv []*js.Value) (*js.Value, bool) {
-			if len(argv) != 2 {
-				return rt.Null(), false
-			}
-			return rt.Int(argv[0].Int() + argv[1].Int()), true
-		},
-	) {
-		// Call the function
-		if value, ok := runtime.Eval("add(100, 200)"); ok {
-			println(value.Int())
-		}
-	}
+	)
+	script.Execute()
+	script.Execute()
+	script.Execute()
 
 	// Error handler
-	runtime.SetErrorReporter(func(report *js.ErrorReport) {
+	context.SetErrorReporter(func(report *js.ErrorReport) {
 		println(fmt.Sprintf(
 			"%s:%d: %s",
 			report.FileName, report.LineNum, report.Message,
@@ -53,7 +45,5 @@ func main() {
 			println("\t", report.LineBuf)
 		}
 	})
-
-	// Trigger an error
-	runtime.Eval("abc()")
+	context.Eval("not_exists()")
 }

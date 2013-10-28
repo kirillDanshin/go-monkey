@@ -1,5 +1,6 @@
 package main
 
+import "fmt"
 import "sync"
 import "runtime"
 import js "github.com/realint/monkey"
@@ -15,10 +16,20 @@ func main() {
 	runtime.GOMAXPROCS(20)
 
 	// Create script runtime
-	runtime, err1 := js.NewRuntime(8 * 1024 * 1024)
-	if err1 != nil {
-		panic(err1)
-	}
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
+
+	context.DefineFunction("println",
+		func(cx *js.Context, args []*js.Value) *js.Value {
+			for i := 0; i < len(args); i++ {
+				fmt.Print(args[i])
+			}
+			fmt.Println()
+			return cx.Void()
+		},
+	)
 
 	wg := new(sync.WaitGroup)
 
@@ -27,8 +38,8 @@ func main() {
 		wg.Add(1)
 		go func() {
 			for j := 0; j < 1000; j++ {
-				_, ok := runtime.Eval("println('Hello World!')")
-				assert(ok)
+				v := context.Eval("println('Hello World!')")
+				assert(v != nil)
 			}
 			wg.Done()
 		}()
