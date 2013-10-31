@@ -42,7 +42,7 @@ func main() {
 			obj := cx.NewObject(nil)
 
 			ok := obj.DefineFunction("abc",
-				func(cx *js.Context, args []*js.Value) *js.Value {
+				func(object *js.Object, name string, args []*js.Value) *js.Value {
 					return cx.Int(100)
 				},
 			)

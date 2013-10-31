@@ -9,12 +9,14 @@ import (
 	"unsafe"
 )
 
+type JsObjectFunc func(obj *Object, name string, argv []*Value) *Value
+
 // JavaScript Object
 type Object struct {
 	cx      *Context
 	obj     *C.JSObject
 	gval    interface{}
-	funcs   map[string]JsFunc
+	funcs   map[string]JsObjectFunc
 	getters map[string]JsPropertyGetter
 	setters map[string]JsPropertySetter
 }
@@ -174,7 +176,7 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 		argv[i] = newValue(o.cx, C.GET_ARGV(o.cx.jscx, vp, C.int(i)))
 	}
 
-	var result = o.funcs[C.GoString(name)](o.cx, argv)
+	var result = o.funcs[C.GoString(name)](o, C.GoString(name), argv)
 
 	if result != nil {
 		C.SET_RVAL(o.cx.jscx, vp, result.val)
@@ -187,7 +189,7 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 // Define a function into object
 // @name     The function name
 // @callback The function implement
-func (o *Object) DefineFunction(name string, callback JsFunc) bool {
+func (o *Object) DefineFunction(name string, callback JsObjectFunc) bool {
 	o.cx.rt.lock()
 	defer o.cx.rt.unlock()
 
@@ -199,7 +201,7 @@ func (o *Object) DefineFunction(name string, callback JsFunc) bool {
 	}
 
 	if o.funcs == nil {
-		o.funcs = make(map[string]JsFunc)
+		o.funcs = make(map[string]JsObjectFunc)
 	}
 
 	o.funcs[name] = callback

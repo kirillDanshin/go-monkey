@@ -199,6 +199,10 @@ func (c *Context) Compile(code, filename string, lineno int) *Script {
 	return nil
 }
 
+func (c *Context) Throw(msg string) *Value {
+	return c.Eval("throw '" + msg + "';")
+}
+
 type JsFunc func(context *Context, argv []*Value) *Value
 
 //export call_go_func
