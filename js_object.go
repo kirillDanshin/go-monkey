@@ -13,6 +13,7 @@ import (
 type Object struct {
 	cx      *Context
 	obj     *C.JSObject
+	gval    interface{}
 	funcs   map[string]JsFunc
 	getters map[string]JsPropertyGetter
 	setters map[string]JsPropertySetter
@@ -20,8 +21,13 @@ type Object struct {
 
 // Add the JSObject to the garbage collector's root set.
 // See: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/JSAPI_reference/JS_AddRoot
-func newObject(cx *Context, obj *C.JSObject) *Object {
-	result := &Object{cx, obj, nil, nil, nil}
+func newObject(cx *Context, obj *C.JSObject, gval interface{}) *Object {
+	gobj := (*Object)(C.JS_GetPrivate(cx.jscx, obj))
+	if gobj != nil {
+		return gobj
+	}
+
+	result := &Object{cx, obj, gval, nil, nil, nil}
 
 	C.JS_AddObjectRoot(cx.jscx, &result.obj)
 
@@ -41,6 +47,14 @@ func (o *Object) Runtime() *Runtime {
 
 func (o *Object) Context() *Context {
 	return o.cx
+}
+
+func (o *Object) GoValue() interface{} {
+	return o.gval
+}
+
+func (o *Object) SetGoValue(gval interface{}) {
+	o.gval = gval
 }
 
 func (o *Object) ToValue() *Value {

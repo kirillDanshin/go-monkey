@@ -3,7 +3,7 @@ package main
 import "fmt"
 import "sync"
 import "runtime"
-import js "github.com/realint/monkey"
+import js "github.com/lazytiger/monkey"
 
 func assert(c bool) bool {
 	if !c {

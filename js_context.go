@@ -305,8 +305,8 @@ func (c *Context) NewArray() *Array {
 }
 
 // Create an empty object, like: {}
-func (c *Context) NewObject() *Object {
+func (c *Context) NewObject(gval interface{}) *Object {
 	c.rt.lock()
 	defer c.rt.unlock()
-	return newObject(c, C.JS_NewObject(c.jscx, nil, nil, nil))
+	return newObject(c, C.JS_NewObject(c.jscx, nil, nil, nil), gval)
 }

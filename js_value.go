@@ -151,7 +151,7 @@ func (v *Value) ToObject() *Object {
 
 	var obj *C.JSObject
 	if C.JS_ValueToObject(v.cx.jscx, v.val, &obj) == C.JS_TRUE {
-		return newObject(v.cx, obj)
+		return newObject(v.cx, obj, nil)
 	}
 
 	return nil
