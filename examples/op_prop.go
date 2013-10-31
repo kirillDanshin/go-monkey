@@ -28,7 +28,7 @@ func main() {
 			// Define the property 'abc' with getter and setter
 			ok := obj.DefineProperty("abc",
 				// Init value
-				cx.Int(123),
+				cx.Void(),
 				// T getter callback called each time
 				// JavaScript code accesses the property's value
 				func(o *js.Object, name string) *js.Value {
@@ -93,5 +93,31 @@ func main() {
 		t, ok3 := obj.GoValue().(*T)
 		assert(ok3)
 		assert(t.abc == 456)
+	}
+
+	if value := context.Eval(`
+		var a = {};
+		a.field1 = 1;
+		a.field2 = "hello";
+		a.field3 = 1.2;
+		a.field4 = true;
+		a.field5 = {};
+		a.func1 = function(){};
+		a;
+	`); assert(value != nil) {
+		obj := value.ToObject()
+		assert(obj != nil)
+
+		keys := obj.Keys()
+		assert(len(keys) == 6)
+		assert(keys[0] == "field1")
+		assert(keys[1] == "field2")
+		assert(keys[2] == "field3")
+		assert(keys[3] == "field4")
+		assert(keys[4] == "field5")
+		assert(keys[5] == "func1")
+
+		keys = obj.GetProperty("field5").ToObject().Keys()
+		assert(len(keys) == 0)
 	}
 }

@@ -5,6 +5,7 @@ package monkey
 */
 import "C"
 import (
+	"reflect"
 	"runtime"
 	"unsafe"
 )
@@ -52,7 +53,21 @@ func (o *Object) Context() *Context {
 }
 
 func (o *Object) GoValue() interface{} {
-	return o.gval
+	if o.gval != nil {
+		return o.gval
+	}
+
+	keys := o.Keys()
+	ret := make(map[string]interface{}, len(keys))
+	for _, key := range keys {
+		value := o.GetProperty(key)
+		if value.IsFunction() {
+			continue
+		}
+
+		ret[key] = value.GoValue()
+	}
+	return ret
 }
 
 func (o *Object) SetGoValue(gval interface{}) {
@@ -76,6 +91,34 @@ func (o *Object) GetProperty(name string) *Value {
 	}
 
 	return nil
+}
+
+func (o *Object) Keys() []string {
+	context := o.Context()
+	jscx := context.jscx
+
+	ids := C.JS_Enumerate(jscx, o.obj)
+	if ids == nil {
+		panic("enumerate failed")
+	}
+	defer C.JS_free(jscx, unsafe.Pointer(ids))
+
+	keys := make([]string, ids.length)
+	head := unsafe.Pointer(&ids.vector[0])
+
+	sl := &reflect.SliceHeader{
+		uintptr(unsafe.Pointer(head)), len(keys), len(keys),
+	}
+	vector := *(*[]C.jsid)(unsafe.Pointer(sl))
+	for i := 0; i < len(keys); i++ {
+		id := vector[i]
+		ckey := C.JS_EncodeString(jscx, C.JSID_TO_STRING(id))
+		gkey := C.GoString(ckey)
+		C.JS_free(jscx, unsafe.Pointer(ckey))
+		keys[i] = gkey
+	}
+
+	return keys
 }
 
 func (o *Object) SetProperty(name string, v *Value) bool {

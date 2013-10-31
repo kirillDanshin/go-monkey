@@ -172,6 +172,34 @@ func (v *Value) ToArray() *Array {
 	return nil
 }
 
+// 将一个值直接转换成go类型
+func (v *Value) GoValue() interface{} {
+	var ret interface{}
+	if v.IsBoolean() {
+		ret, _ = v.ToBoolean()
+	} else if v.IsInt() {
+		ret, _ = v.ToInt()
+	} else if v.IsNull() {
+	} else if v.IsNumber() {
+		ret, _ = v.ToNumber()
+	} else if v.IsString() {
+		ret = v.String()
+	} else if v.IsObject() {
+		ret = v.ToObject().GoValue
+	} else if v.IsArray() {
+		arr := v.ToArray()
+		goArr := make([]interface{}, arr.GetLength())
+		for i := 0; i < arr.GetLength(); i++ {
+			goArr[i] = arr.GetElement(i).GoValue()
+		}
+		ret = goArr
+	} else {
+		panic("unsupported js type")
+	}
+
+	return ret
+}
+
 // Call a function value
 func (v *Value) Call(argv []*Value) *Value {
 	v.cx.rt.lock()
