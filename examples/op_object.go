@@ -37,7 +37,7 @@ func main() {
 	// Return and object From Go
 	ok := context.DefineFunction("get_data",
 		func(cx *js.Context, args []*js.Value) *js.Value {
-			obj := cx.NewObject()
+			obj := cx.NewObject(nil)
 			obj.SetInt("abc", 100)
 			obj.SetInt("def", 200)
 			return obj.ToValue()

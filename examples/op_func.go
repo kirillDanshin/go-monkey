@@ -39,7 +39,7 @@ func main() {
 	// Define a function that return an object with function from Go
 	ok := context.DefineFunction("get_data",
 		func(cx *js.Context, args []*js.Value) *js.Value {
-			obj := cx.NewObject()
+			obj := cx.NewObject(nil)
 
 			ok := obj.DefineFunction("abc",
 				func(cx *js.Context, args []*js.Value) *js.Value {

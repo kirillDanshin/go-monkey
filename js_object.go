@@ -95,14 +95,14 @@ const (
 	JSPROP_PERMANENT = C.JSPROP_PERMANENT // The property cannot be deleted.
 )
 
-type JsPropertyGetter func(o *Object) *Value
-type JsPropertySetter func(o *Object, v *Value)
+type JsPropertyGetter func(o *Object, name string) *Value
+type JsPropertySetter func(o *Object, name string, v *Value)
 
 //export call_go_getter
 func call_go_getter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 	o := (*Object)(obj)
 	if o.getters != nil {
-		if v := o.getters[C.GoString(name)](o); v != nil {
+		if v := o.getters[C.GoString(name)](o, C.GoString(name)); v != nil {
 			*val = v.val
 			return C.JS_TRUE
 		}
@@ -114,7 +114,7 @@ func call_go_getter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 func call_go_setter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 	o := (*Object)(obj)
 	if o.setters != nil {
-		o.setters[C.GoString(name)](o, newValue(o.cx, *val))
+		o.setters[C.GoString(name)](o, C.GoString(name), newValue(o.cx, *val))
 		return C.JS_TRUE
 	}
 	return C.JS_FALSE

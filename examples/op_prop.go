@@ -31,17 +31,25 @@ func main() {
 				cx.Int(123),
 				// T getter callback called each time
 				// JavaScript code accesses the property's value
-				func(o *js.Object) *js.Value {
+				func(o *js.Object, name string) *js.Value {
 					t := o.GoValue().(*T)
-					return cx.Int(t.abc)
+					if name == "abc" {
+						return cx.Int(t.abc)
+					} else {
+						panic("undefined property " + name)
+					}
 				},
 				// The setter callback is called each time
 				// JavaScript code assigns to the property
-				func(o *js.Object, val *js.Value) {
+				func(o *js.Object, name string, val *js.Value) {
 					t := o.GoValue().(*T)
-					d, ok := val.ToInt()
-					assert(ok)
-					t.abc = d
+					if name == "abc" {
+						d, ok := val.ToInt()
+						assert(ok)
+						t.abc = d
+					} else {
+						panic("undefined property " + name)
+					}
 				},
 				0,
 			)
