@@ -172,28 +172,31 @@ func (v *Value) ToArray() *Array {
 	return nil
 }
 
-// 将一个值直接转换成go类型
-func (v *Value) GoValue() interface{} {
+// Convert a JavaScript value to Go object
+func (v *Value) ToGo() interface{} {
 	var ret interface{}
-	if v.IsBoolean() {
+
+	switch {
+	case v.IsBoolean():
 		ret, _ = v.ToBoolean()
-	} else if v.IsInt() {
+	case v.IsInt():
 		ret, _ = v.ToInt()
-	} else if v.IsNull() {
-	} else if v.IsNumber() {
+	case v.IsNumber():
 		ret, _ = v.ToNumber()
-	} else if v.IsString() {
+	case v.IsString():
 		ret = v.String()
-	} else if v.IsObject() {
-		ret = v.ToObject().GoValue
-	} else if v.IsArray() {
+	case v.IsObject():
+		ret = v.ToObject().ToGo()
+	case v.IsArray():
 		arr := v.ToArray()
 		goArr := make([]interface{}, arr.GetLength())
 		for i := 0; i < arr.GetLength(); i++ {
-			goArr[i] = arr.GetElement(i).GoValue()
+			goArr[i] = arr.GetElement(i).ToGo()
 		}
 		ret = goArr
-	} else {
+	case v.IsNull():
+		ret = nil
+	default:
 		panic("unsupported js type")
 	}
 

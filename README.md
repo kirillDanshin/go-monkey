@@ -448,7 +448,7 @@ func main() {
 				// T getter callback called each time
 				// JavaScript code accesses the property's value
 				func(o *js.Object, name string) *js.Value {
-					t := o.GoValue().(*T)
+					t := o.GetPrivate().(*T)
 					if name == "abc" {
 						return cx.Int(t.abc)
 					} else {
@@ -458,7 +458,7 @@ func main() {
 				// The setter callback is called each time
 				// JavaScript code assigns to the property
 				func(o *js.Object, name string, val *js.Value) {
-					t := o.GoValue().(*T)
+					t := o.GetPrivate().(*T)
 					if name == "abc" {
 						d, ok := val.ToInt()
 						assert(ok)
@@ -506,7 +506,7 @@ func main() {
 		// Check v3
 		obj := array.GetObject(2)
 		assert(obj != nil)
-		t, ok3 := obj.GoValue().(*T)
+		t, ok3 := obj.GetPrivate().(*T)
 		assert(ok3)
 		assert(t.abc == 456)
 	}

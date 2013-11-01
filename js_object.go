@@ -52,25 +52,31 @@ func (o *Object) Context() *Context {
 	return o.cx
 }
 
-func (o *Object) GoValue() interface{} {
-	if o.gval != nil {
-		return o.gval
-	}
-
+func (o *Object) ToGo() interface{} {
 	keys := o.Keys()
 	ret := make(map[string]interface{}, len(keys))
 	for _, key := range keys {
 		value := o.GetProperty(key)
+
+		// TODO: warp
+		// ret[key] = func(argv []interface{}) {
+		//     argv => argv2
+		//     value.Call(argv2)
+		// }
 		if value.IsFunction() {
 			continue
 		}
 
-		ret[key] = value.GoValue()
+		ret[key] = value.ToGo()
 	}
 	return ret
 }
 
-func (o *Object) SetGoValue(gval interface{}) {
+func (o *Object) GetPrivate() interface{} {
+	return o.gval
+}
+
+func (o *Object) SetPrivate(gval interface{}) {
 	o.gval = gval
 }
 
@@ -94,27 +100,27 @@ func (o *Object) GetProperty(name string) *Value {
 }
 
 func (o *Object) Keys() []string {
-	context := o.Context()
-	jscx := context.jscx
+	o.cx.rt.lock()
+	defer o.cx.rt.unlock()
 
-	ids := C.JS_Enumerate(jscx, o.obj)
+	ids := C.JS_Enumerate(o.cx.jscx, o.obj)
 	if ids == nil {
 		panic("enumerate failed")
 	}
-	defer C.JS_free(jscx, unsafe.Pointer(ids))
+	defer C.JS_free(o.cx.jscx, unsafe.Pointer(ids))
 
 	keys := make([]string, ids.length)
 	head := unsafe.Pointer(&ids.vector[0])
 
 	sl := &reflect.SliceHeader{
-		uintptr(unsafe.Pointer(head)), len(keys), len(keys),
+		uintptr(head), len(keys), len(keys),
 	}
 	vector := *(*[]C.jsid)(unsafe.Pointer(sl))
 	for i := 0; i < len(keys); i++ {
 		id := vector[i]
-		ckey := C.JS_EncodeString(jscx, C.JSID_TO_STRING(id))
+		ckey := C.JS_EncodeString(o.cx.jscx, C.JSID_TO_STRING(id))
 		gkey := C.GoString(ckey)
-		C.JS_free(jscx, unsafe.Pointer(ckey))
+		C.JS_free(o.cx.jscx, unsafe.Pointer(ckey))
 		keys[i] = gkey
 	}
 
