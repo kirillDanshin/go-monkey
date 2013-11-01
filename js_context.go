@@ -199,6 +199,10 @@ func (c *Context) Compile(code, filename string, lineno int) *Script {
 	return nil
 }
 
+func (c *Context) Throw(msg string) *Value {
+	return c.Eval("throw '" + msg + "';")
+}
+
 type JsFunc func(context *Context, argv []*Value) *Value
 
 //export call_go_func
@@ -305,8 +309,8 @@ func (c *Context) NewArray() *Array {
 }
 
 // Create an empty object, like: {}
-func (c *Context) NewObject() *Object {
+func (c *Context) NewObject(gval interface{}) *Object {
 	c.rt.lock()
 	defer c.rt.unlock()
-	return newObject(c, C.JS_NewObject(c.jscx, nil, nil, nil))
+	return newObject(c, C.JS_NewObject(c.jscx, nil, nil, nil), gval)
 }

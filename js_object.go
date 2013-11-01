@@ -5,23 +5,32 @@ package monkey
 */
 import "C"
 import (
+	"reflect"
 	"runtime"
 	"unsafe"
 )
+
+type JsObjectFunc func(obj *Object, name string, argv []*Value) *Value
 
 // JavaScript Object
 type Object struct {
 	cx      *Context
 	obj     *C.JSObject
-	funcs   map[string]JsFunc
+	gval    interface{}
+	funcs   map[string]JsObjectFunc
 	getters map[string]JsPropertyGetter
 	setters map[string]JsPropertySetter
 }
 
 // Add the JSObject to the garbage collector's root set.
 // See: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/JSAPI_reference/JS_AddRoot
-func newObject(cx *Context, obj *C.JSObject) *Object {
-	result := &Object{cx, obj, nil, nil, nil}
+func newObject(cx *Context, obj *C.JSObject, gval interface{}) *Object {
+	gobj := (*Object)(C.JS_GetPrivate(cx.jscx, obj))
+	if gobj != nil {
+		return gobj
+	}
+
+	result := &Object{cx, obj, gval, nil, nil, nil}
 
 	C.JS_AddObjectRoot(cx.jscx, &result.obj)
 
@@ -43,6 +52,28 @@ func (o *Object) Context() *Context {
 	return o.cx
 }
 
+func (o *Object) GoValue() interface{} {
+	if o.gval != nil {
+		return o.gval
+	}
+
+	keys := o.Keys()
+	ret := make(map[string]interface{}, len(keys))
+	for _, key := range keys {
+		value := o.GetProperty(key)
+		if value.IsFunction() {
+			continue
+		}
+
+		ret[key] = value.GoValue()
+	}
+	return ret
+}
+
+func (o *Object) SetGoValue(gval interface{}) {
+	o.gval = gval
+}
+
 func (o *Object) ToValue() *Value {
 	return newValue(o.cx, C.OBJECT_TO_JSVAL(o.obj))
 }
@@ -60,6 +91,34 @@ func (o *Object) GetProperty(name string) *Value {
 	}
 
 	return nil
+}
+
+func (o *Object) Keys() []string {
+	context := o.Context()
+	jscx := context.jscx
+
+	ids := C.JS_Enumerate(jscx, o.obj)
+	if ids == nil {
+		panic("enumerate failed")
+	}
+	defer C.JS_free(jscx, unsafe.Pointer(ids))
+
+	keys := make([]string, ids.length)
+	head := unsafe.Pointer(&ids.vector[0])
+
+	sl := &reflect.SliceHeader{
+		uintptr(unsafe.Pointer(head)), len(keys), len(keys),
+	}
+	vector := *(*[]C.jsid)(unsafe.Pointer(sl))
+	for i := 0; i < len(keys); i++ {
+		id := vector[i]
+		ckey := C.JS_EncodeString(jscx, C.JSID_TO_STRING(id))
+		gkey := C.GoString(ckey)
+		C.JS_free(jscx, unsafe.Pointer(ckey))
+		keys[i] = gkey
+	}
+
+	return keys
 }
 
 func (o *Object) SetProperty(name string, v *Value) bool {
@@ -81,14 +140,14 @@ const (
 	JSPROP_PERMANENT = C.JSPROP_PERMANENT // The property cannot be deleted.
 )
 
-type JsPropertyGetter func(o *Object) *Value
-type JsPropertySetter func(o *Object, v *Value)
+type JsPropertyGetter func(o *Object, name string) *Value
+type JsPropertySetter func(o *Object, name string, v *Value)
 
 //export call_go_getter
 func call_go_getter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 	o := (*Object)(obj)
 	if o.getters != nil {
-		if v := o.getters[C.GoString(name)](o); v != nil {
+		if v := o.getters[C.GoString(name)](o, C.GoString(name)); v != nil {
 			*val = v.val
 			return C.JS_TRUE
 		}
@@ -100,7 +159,7 @@ func call_go_getter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 func call_go_setter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 	o := (*Object)(obj)
 	if o.setters != nil {
-		o.setters[C.GoString(name)](o, newValue(o.cx, *val))
+		o.setters[C.GoString(name)](o, C.GoString(name), newValue(o.cx, *val))
 		return C.JS_TRUE
 	}
 	return C.JS_FALSE
@@ -160,7 +219,7 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 		argv[i] = newValue(o.cx, C.GET_ARGV(o.cx.jscx, vp, C.int(i)))
 	}
 
-	var result = o.funcs[C.GoString(name)](o.cx, argv)
+	var result = o.funcs[C.GoString(name)](o, C.GoString(name), argv)
 
 	if result != nil {
 		C.SET_RVAL(o.cx.jscx, vp, result.val)
@@ -173,7 +232,7 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 // Define a function into object
 // @name     The function name
 // @callback The function implement
-func (o *Object) DefineFunction(name string, callback JsFunc) bool {
+func (o *Object) DefineFunction(name string, callback JsObjectFunc) bool {
 	o.cx.rt.lock()
 	defer o.cx.rt.unlock()
 
@@ -185,7 +244,7 @@ func (o *Object) DefineFunction(name string, callback JsFunc) bool {
 	}
 
 	if o.funcs == nil {
-		o.funcs = make(map[string]JsFunc)
+		o.funcs = make(map[string]JsObjectFunc)
 	}
 
 	o.funcs[name] = callback
