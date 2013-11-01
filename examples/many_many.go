@@ -3,7 +3,7 @@ package main
 import "fmt"
 import "sync"
 import "runtime"
-import js "github.com/lazytiger/monkey"
+import js "github.com/realint/monkey"
 
 func assert(c bool) bool {
 	if !c {
@@ -37,7 +37,7 @@ func main() {
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
-			for j := 0; j < 1000; j++ {
+			for j := 0; j < 100; j++ {
 				v := context.Eval("println('Hello World!')")
 				assert(v != nil)
 			}

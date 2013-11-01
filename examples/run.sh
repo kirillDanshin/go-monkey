@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ROOT=`readlink -f $0|xargs dirname`
+ROOT=`dirname $0`
 set -e
 for i in $ROOT/*.go; do
 	go run $i

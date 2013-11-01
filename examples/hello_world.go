@@ -1,7 +1,7 @@
 package main
 
 import "fmt"
-import js "github.com/lazytiger/monkey"
+import js "github.com/realint/monkey"
 
 func main() {
 	// Create script runtime
