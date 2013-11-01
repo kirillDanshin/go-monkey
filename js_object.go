@@ -225,7 +225,8 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 		argv[i] = newValue(o.cx, C.GET_ARGV(o.cx.jscx, vp, C.int(i)))
 	}
 
-	var result = o.funcs[C.GoString(name)](o, C.GoString(name), argv)
+	var gname = C.GoString(name)
+	var result = o.funcs[gname](o, gname, argv)
 
 	if result != nil {
 		C.SET_RVAL(o.cx.jscx, vp, result.val)
