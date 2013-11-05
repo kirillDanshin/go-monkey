@@ -14,16 +14,16 @@ func init() {
 	cx = rt.NewContext()
 
 	cx.Eval(`function add(a,b){
-	   return a + b
-    }`)
+		return a + b
+	}`)
 
 	cx.Eval(`function ooxx(i, j) {
-        b = 0;
-        for (a = 0; a < 10000; a ++) {
-            b += 1 / ((i+j)*(i+j+1)/2 + i + 1)
-        }
-        return b;
-    }`)
+		b = 0;
+		for (a = 0; a < 10000; a ++) {
+			b += 1 / ((i+j)*(i+j+1)/2 + i + 1)
+		}
+		return b;
+	}`)
 
 	cx.DefineFunction("add2", func(cx *Context, argv []*Value) *Value {
 		var a, _ = argv[0].ToInt()
