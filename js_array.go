@@ -21,7 +21,7 @@ func newArray(cx *Context, obj *C.JSObject) *Array {
 	C.JS_AddObjectRoot(cx.jscx, &result.obj)
 
 	runtime.SetFinalizer(result, func(a *Array) {
-		C.JS_RemoveObjectRoot(a.cx.jscx, &a.obj)
+		cx.rt.aryDisposeChan <- a
 	})
 
 	return result

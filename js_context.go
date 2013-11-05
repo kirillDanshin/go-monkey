@@ -21,37 +21,43 @@ type Context struct {
 }
 
 func (r *Runtime) NewContext() *Context {
-	c := new(Context)
-	c.rt = r
+	var result *Context
 
-	c.jscx = C.JS_NewContext(r.jsrt, 8192)
-	if c.jscx == nil {
-		return nil
-	}
+	r.dowork(func() {
+		c := new(Context)
+		c.rt = r
 
-	C.JS_SetOptions(c.jscx, C.JSOPTION_VAROBJFIX|C.JSOPTION_JIT|C.JSOPTION_METHODJIT)
-	C.JS_SetVersion(c.jscx, C.JSVERSION_LATEST)
+		c.jscx = C.JS_NewContext(r.jsrt, 8192)
+		if c.jscx == nil {
+			return
+		}
 
-	c.jsglobal = C.JS_NewCompartmentAndGlobalObject(c.jscx, &C.global_class, nil)
+		C.JS_SetOptions(c.jscx, C.JSOPTION_VAROBJFIX|C.JSOPTION_JIT|C.JSOPTION_METHODJIT)
+		C.JS_SetVersion(c.jscx, C.JSVERSION_LATEST)
 
-	if C.JS_InitStandardClasses(c.jscx, c.jsglobal) != C.JS_TRUE {
-		return nil
-	}
+		c.jsglobal = C.JS_NewCompartmentAndGlobalObject(c.jscx, &C.global_class, nil)
 
-	// User defined function use this to find callback.
-	C.JS_SetContextPrivate(c.jscx, unsafe.Pointer(c))
+		if C.JS_InitStandardClasses(c.jscx, c.jsglobal) != C.JS_TRUE {
+			return
+		}
 
-	runtime.SetFinalizer(c, func(c *Context) {
-		c.Dispose()
+		// User defined function use this to find callback.
+		C.JS_SetContextPrivate(c.jscx, unsafe.Pointer(c))
+
+		runtime.SetFinalizer(c, func(c *Context) {
+			c.Dispose()
+		})
+
+		result = c
 	})
 
-	return c
+	return result
 }
 
 // Free by manual
 func (c *Context) Dispose() {
 	if atomic.CompareAndSwapInt64(&c.disposed, 0, 1) {
-		C.JS_DestroyContext(c.jscx)
+		c.rt.ctxDisposeChan <- c
 	}
 }
 
@@ -133,7 +139,7 @@ type Script struct {
 // Free by manual
 func (s *Script) Dispose() {
 	if atomic.CompareAndSwapInt64(&s.disposed, 0, 1) {
-		C.JS_RemoveObjectRoot(s.cx.jscx, &s.obj)
+		s.cx.rt.sptDisposeChan <- s
 	}
 }
 

@@ -22,7 +22,7 @@ func newValue(cx *Context, val C.jsval) *Value {
 	C.JS_AddValueRoot(cx.jscx, &result.val)
 
 	runtime.SetFinalizer(result, func(v *Value) {
-		C.JS_RemoveValueRoot(v.cx.jscx, &v.val)
+		cx.rt.valDisposeChan <- v
 	})
 
 	return result

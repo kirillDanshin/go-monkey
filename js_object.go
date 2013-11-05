@@ -35,7 +35,7 @@ func newObject(cx *Context, obj *C.JSObject, gval interface{}) *Object {
 	C.JS_AddObjectRoot(cx.jscx, &result.obj)
 
 	runtime.SetFinalizer(result, func(o *Object) {
-		C.JS_RemoveObjectRoot(o.cx.jscx, &o.obj)
+		cx.rt.objDisposeChan <- o
 	})
 
 	// User defined property and function object use this to find callback.
