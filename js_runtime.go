@@ -71,6 +71,7 @@ func (r *Runtime) init() {
 	r.objDisposeChan = make(chan *Object, 100)
 	r.aryDisposeChan = make(chan *Array, 100)
 	r.valDisposeChan = make(chan *Value, 100)
+	r.sptDisposeChan = make(chan *Script, 100)
 
 	runtime.SetFinalizer(r, func(r *Runtime) {
 		r.Dispose()
