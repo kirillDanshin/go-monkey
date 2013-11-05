@@ -32,41 +32,41 @@ func (a *Array) ToValue() *Value {
 }
 
 func (a *Array) GetLength() int {
-	a.cx.rt.lock()
-	defer a.cx.rt.unlock()
-
-	var l C.jsuint
-	if C.JS_GetArrayLength(a.cx.jscx, a.obj, &l) == C.JS_TRUE {
-		return int(l)
-	}
-
-	return -1
+	var result int = -1
+	a.cx.rt.dowork(func() {
+		var l C.jsuint
+		if C.JS_GetArrayLength(a.cx.jscx, a.obj, &l) == C.JS_TRUE {
+			result = int(l)
+		}
+	})
+	return result
 }
 
 func (a *Array) SetLength(length int) bool {
-	a.cx.rt.lock()
-	defer a.cx.rt.unlock()
-
-	return C.JS_SetArrayLength(a.cx.jscx, a.obj, C.jsuint(length)) == C.JS_TRUE
+	var result bool
+	a.cx.rt.dowork(func() {
+		result = C.JS_SetArrayLength(a.cx.jscx, a.obj, C.jsuint(length)) == C.JS_TRUE
+	})
+	return result
 }
 
 func (a *Array) GetElement(index int) *Value {
-	a.cx.rt.lock()
-	defer a.cx.rt.unlock()
-
-	var rval C.jsval
-	if C.JS_GetElement(a.cx.jscx, a.obj, C.jsint(index), &rval) == C.JS_TRUE {
-		return newValue(a.cx, rval)
-	}
-
-	return nil
+	var result *Value
+	a.cx.rt.dowork(func() {
+		var rval C.jsval
+		if C.JS_GetElement(a.cx.jscx, a.obj, C.jsint(index), &rval) == C.JS_TRUE {
+			result = newValue(a.cx, rval)
+		}
+	})
+	return result
 }
 
 func (a *Array) SetElement(index int, v *Value) bool {
-	a.cx.rt.lock()
-	defer a.cx.rt.unlock()
-
-	return C.JS_SetElement(a.cx.jscx, a.obj, C.jsint(index), &v.val) == C.JS_TRUE
+	var result bool
+	a.cx.rt.dowork(func() {
+		result = C.JS_SetElement(a.cx.jscx, a.obj, C.jsint(index), &v.val) == C.JS_TRUE
+	})
+	return result
 }
 
 /*

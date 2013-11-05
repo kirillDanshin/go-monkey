@@ -103,23 +103,24 @@ func (c *Context) SetErrorReporter(reporter ErrorReporter) {
 // Evaluate JavaScript
 // When you need high efficiency or run same script many times, please look at Compile() method.
 func (c *Context) Eval(script string) *Value {
-	c.rt.lock()
-	defer c.rt.unlock()
+	var result *Value
 
-	cscript := C.CString(script)
-	defer C.free(unsafe.Pointer(cscript))
+	c.rt.dowork(func() {
+		cscript := C.CString(script)
+		defer C.free(unsafe.Pointer(cscript))
 
-	var rval C.jsval
-	if C.JS_EvaluateScript(
-		c.jscx, c.jsglobal,
-		cscript, C.uintN(len(script)),
-		C.eval_filename, 0,
-		&rval,
-	) == C.JS_TRUE {
-		return newValue(c, rval)
-	}
+		var rval C.jsval
+		if C.JS_EvaluateScript(
+			c.jscx, c.jsglobal,
+			cscript, C.uintN(len(script)),
+			C.eval_filename, 0,
+			&rval,
+		) == C.JS_TRUE {
+			result = newValue(c, rval)
+		}
+	})
 
-	return nil
+	return result
 }
 
 // Compiled Script
@@ -146,61 +147,60 @@ func (s *Script) Runtime() *Runtime {
 
 // Execute the script
 func (s *Script) Execute() *Value {
-	s.cx.rt.lock()
-	defer s.cx.rt.unlock()
+	var result *Value
 
-	var rval C.jsval
-	if C.JS_ExecuteScript(s.cx.jscx, s.cx.jsglobal, s.obj, &rval) == C.JS_TRUE {
-		return newValue(s.cx, rval)
-	}
+	s.cx.rt.dowork(func() {
+		var rval C.jsval
+		if C.JS_ExecuteScript(s.cx.jscx, s.cx.jsglobal, s.obj, &rval) == C.JS_TRUE {
+			result = newValue(s.cx, rval)
+		}
+	})
 
-	return nil
+	return result
 }
 
 // Execute the script
 func (s *Script) ExecuteIn(cx *Context) *Value {
-	cx.rt.lock()
-	defer cx.rt.unlock()
+	var result *Value
 
-	var rval C.jsval
-	if C.JS_ExecuteScript(cx.jscx, cx.jsglobal, s.obj, &rval) == C.JS_TRUE {
-		return newValue(cx, rval)
-	}
+	cx.rt.dowork(func() {
+		var rval C.jsval
+		if C.JS_ExecuteScript(cx.jscx, cx.jsglobal, s.obj, &rval) == C.JS_TRUE {
+			result = newValue(cx, rval)
+		}
+	})
 
-	return nil
+	return result
 }
 
 // Compile JavaScript
 // When you need run a script many times, you can use this to avoid dynamic compile.
 func (c *Context) Compile(code, filename string, lineno int) *Script {
-	c.rt.lock()
-	defer c.rt.unlock()
+	var result *Script
 
-	ccode := C.CString(code)
-	defer C.free(unsafe.Pointer(ccode))
+	c.rt.dowork(func() {
+		ccode := C.CString(code)
+		defer C.free(unsafe.Pointer(ccode))
 
-	cfilename := C.CString(filename)
-	defer C.free(unsafe.Pointer(cfilename))
+		cfilename := C.CString(filename)
+		defer C.free(unsafe.Pointer(cfilename))
 
-	var obj = C.JS_CompileScript(c.jscx, c.jsglobal, ccode, C.size_t(len(code)), cfilename, C.uintN(lineno))
+		var obj = C.JS_CompileScript(c.jscx, c.jsglobal, ccode, C.size_t(len(code)), cfilename, C.uintN(lineno))
 
-	if obj != nil {
-		script := &Script{c, obj, 0}
+		if obj != nil {
+			script := &Script{c, obj, 0}
 
-		C.JS_AddObjectRoot(c.jscx, &script.obj)
+			C.JS_AddObjectRoot(c.jscx, &script.obj)
 
-		runtime.SetFinalizer(script, func(s *Script) {
-			s.Dispose()
-		})
+			runtime.SetFinalizer(script, func(s *Script) {
+				s.Dispose()
+			})
 
-		return script
-	}
+			result = script
+		}
+	})
 
-	return nil
-}
-
-func (c *Context) Throw(msg string) *Value {
-	return c.Eval("throw '" + msg + "';")
+	return result
 }
 
 type JsFunc func(context *Context, argv []*Value) *Value
@@ -229,23 +229,26 @@ func call_go_func(c unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.J
 // @name     The function name
 // @callback The function implement
 func (c *Context) DefineFunction(name string, callback JsFunc) bool {
-	c.rt.lock()
-	defer c.rt.unlock()
+	var result bool
 
-	cname := C.CString(name)
-	defer C.free(unsafe.Pointer(cname))
+	c.rt.dowork(func() {
+		cname := C.CString(name)
+		defer C.free(unsafe.Pointer(cname))
 
-	if C.JS_DefineFunction(c.jscx, c.jsglobal, cname, C.the_go_func_callback, 0, 0) == nil {
-		return false
-	}
+		if C.JS_DefineFunction(c.jscx, c.jsglobal, cname, C.the_go_func_callback, 0, 0) == nil {
+			return
+		}
 
-	if c.funcs == nil {
-		c.funcs = make(map[string]JsFunc)
-	}
+		if c.funcs == nil {
+			c.funcs = make(map[string]JsFunc)
+		}
 
-	c.funcs[name] = callback
+		c.funcs[name] = callback
 
-	return true
+		result = true
+	})
+
+	return result
 }
 
 func (c *Context) Runtime() *Runtime {
@@ -254,63 +257,79 @@ func (c *Context) Runtime() *Runtime {
 
 // Warp null
 func (c *Context) Null() *Value {
-	c.rt.lock()
-	defer c.rt.unlock()
-	return newValue(c, C.GET_NULL())
+	var result *Value
+	c.rt.dowork(func() {
+		result = newValue(c, C.GET_NULL())
+	})
+	return result
 }
 
 // Warp void
 func (c *Context) Void() *Value {
-	c.rt.lock()
-	defer c.rt.unlock()
-	return newValue(c, C.GET_VOID())
+	var result *Value
+	c.rt.dowork(func() {
+		result = newValue(c, C.GET_VOID())
+	})
+	return result
 }
 
 // Warp integer
 func (c *Context) Int(v int32) *Value {
-	c.rt.lock()
-	defer c.rt.unlock()
-	return newValue(c, C.INT_TO_JSVAL(C.int32(v)))
+	var result *Value
+	c.rt.dowork(func() {
+		result = newValue(c, C.INT_TO_JSVAL(C.int32(v)))
+	})
+	return result
 }
 
 // Warp float
 func (c *Context) Number(v float64) *Value {
-	c.rt.lock()
-	defer c.rt.unlock()
-	return newValue(c, C.DOUBLE_TO_JSVAL(C.jsdouble(v)))
+	var result *Value
+	c.rt.dowork(func() {
+		result = newValue(c, C.DOUBLE_TO_JSVAL(C.jsdouble(v)))
+	})
+	return result
 }
 
 // Warp string
 func (c *Context) String(v string) *Value {
-	c.rt.lock()
-	defer c.rt.unlock()
+	var result *Value
+	c.rt.dowork(func() {
+		cv := C.CString(v)
+		defer C.free(unsafe.Pointer(cv))
 
-	cv := C.CString(v)
-	defer C.free(unsafe.Pointer(cv))
-
-	return newValue(c, C.STRING_TO_JSVAL(C.JS_NewStringCopyN(c.jscx, cv, C.size_t(len(v)))))
+		result = newValue(c, C.STRING_TO_JSVAL(C.JS_NewStringCopyN(c.jscx, cv, C.size_t(len(v)))))
+	})
+	return result
 }
 
 // Warp boolean
 func (c *Context) Boolean(v bool) *Value {
-	c.rt.lock()
-	defer c.rt.unlock()
-	if v {
-		return newValue(c, C.JS_TRUE)
-	}
-	return newValue(c, C.JS_FALSE)
+	var result *Value
+	c.rt.dowork(func() {
+		if v {
+			result = newValue(c, C.JS_TRUE)
+		} else {
+			result = newValue(c, C.JS_FALSE)
+		}
+	})
+	return result
 }
 
 // Create an empty array, like: []
 func (c *Context) NewArray() *Array {
-	c.rt.lock()
-	defer c.rt.unlock()
-	return newArray(c, C.JS_NewArrayObject(c.jscx, 0, nil))
+	var result *Array
+	c.rt.dowork(func() {
+		result = newArray(c, C.JS_NewArrayObject(c.jscx, 0, nil))
+	})
+	return result
 }
 
 // Create an empty object, like: {}
 func (c *Context) NewObject(gval interface{}) *Object {
-	c.rt.lock()
-	defer c.rt.unlock()
-	return newObject(c, C.JS_NewObject(c.jscx, nil, nil, nil), gval)
+	var result *Object
+	c.rt.dowork(func() {
+		result = newObject(c, C.JS_NewObject(c.jscx, nil, nil, nil), gval)
+	})
+	return result
 }

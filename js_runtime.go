@@ -10,17 +10,21 @@ import "C"
 import (
 	"github.com/realint/monkey/goid"
 	"runtime"
-	"sync"
 	"sync/atomic"
 )
 
 // JavaScript Runtime
 type Runtime struct {
 	jsrt      *C.JSRuntime
-	lockBy    int32
-	lockLevel int
-	mutex     sync.Mutex
+	goid      int32
 	disposed  int64
+	workChan  chan jswork
+	closeChan chan int
+}
+
+type jswork struct {
+	callback   func()
+	resultChan chan int
 }
 
 // Initializes the JavaScript runtime.
@@ -33,38 +37,53 @@ func NewRuntime(maxbytes uint32) *Runtime {
 		return nil
 	}
 
+	r.workChan = make(chan jswork)
+	r.closeChan = make(chan int)
+
 	runtime.SetFinalizer(r, func(r *Runtime) {
 		r.Dispose()
 	})
 
+	go r.workLoop()
+
 	return r
+}
+
+func (r *Runtime) workLoop() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	r.goid = goid.Get()
+L:
+	for {
+		select {
+		case work := <-r.workChan:
+			work.callback()
+			work.resultChan <- 1
+		case _ = <-r.closeChan:
+			break L
+		}
+	}
+}
+
+func (r *Runtime) dowork(callback func()) {
+	if goid.Get() == r.goid {
+		callback()
+	} else {
+		work := jswork{
+			callback:   callback,
+			resultChan: make(chan int),
+		}
+
+		r.workChan <- work
+		<-work.resultChan
+	}
 }
 
 // Free by manual
 func (r *Runtime) Dispose() {
 	if atomic.CompareAndSwapInt64(&r.disposed, 0, 1) {
+		r.closeChan <- 1
 		C.JS_DestroyRuntime(r.jsrt)
-	}
-}
-
-// Because we can't prevent Go execute a JavaScript that execute another JavaScript by call Go defined function.
-// Like this: runtime.Eval("eval('1 + 1')")
-// So I designed this lock mechanism to let runtime can lock by same goroutine many times.
-func (r *Runtime) lock() {
-	id := goid.Get()
-	if r.lockBy != id {
-		r.mutex.Lock()
-		r.lockBy = id
-	} else {
-		r.lockLevel += 1
-	}
-}
-
-func (r *Runtime) unlock() {
-	r.lockLevel -= 1
-	if r.lockLevel < 0 {
-		r.lockLevel = 0
-		r.lockBy = -1
-		r.mutex.Unlock()
 	}
 }

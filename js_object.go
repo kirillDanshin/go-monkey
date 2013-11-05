@@ -52,7 +52,7 @@ func (o *Object) Context() *Context {
 	return o.cx
 }
 
-func (o *Object) ToGo() interface{} {
+func (o *Object) ToGo() map[string]interface{} {
 	keys := o.Keys()
 	ret := make(map[string]interface{}, len(keys))
 	for _, key := range keys {
@@ -81,60 +81,71 @@ func (o *Object) SetPrivate(gval interface{}) {
 }
 
 func (o *Object) ToValue() *Value {
-	return newValue(o.cx, C.OBJECT_TO_JSVAL(o.obj))
+	var result *Value
+	o.cx.rt.dowork(func() {
+		result = newValue(o.cx, C.OBJECT_TO_JSVAL(o.obj))
+	})
+	return result
 }
 
 func (o *Object) GetProperty(name string) *Value {
-	o.cx.rt.lock()
-	defer o.cx.rt.unlock()
+	var result *Value
 
-	cname := C.CString(name)
-	defer C.free(unsafe.Pointer(cname))
+	o.cx.rt.dowork(func() {
+		cname := C.CString(name)
+		defer C.free(unsafe.Pointer(cname))
 
-	var rval C.jsval
-	if C.JS_GetProperty(o.cx.jscx, o.obj, cname, &rval) == C.JS_TRUE {
-		return newValue(o.cx, rval)
-	}
+		var rval C.jsval
+		if C.JS_GetProperty(o.cx.jscx, o.obj, cname, &rval) == C.JS_TRUE {
+			result = newValue(o.cx, rval)
+		}
+	})
 
-	return nil
+	return result
 }
 
 func (o *Object) Keys() []string {
-	o.cx.rt.lock()
-	defer o.cx.rt.unlock()
+	var result []string
 
-	ids := C.JS_Enumerate(o.cx.jscx, o.obj)
-	if ids == nil {
-		panic("enumerate failed")
-	}
-	defer C.JS_free(o.cx.jscx, unsafe.Pointer(ids))
+	o.cx.rt.dowork(func() {
+		ids := C.JS_Enumerate(o.cx.jscx, o.obj)
+		if ids == nil {
+			panic("enumerate failed")
+		}
+		defer C.JS_free(o.cx.jscx, unsafe.Pointer(ids))
 
-	keys := make([]string, ids.length)
-	head := unsafe.Pointer(&ids.vector[0])
+		keys := make([]string, ids.length)
+		head := unsafe.Pointer(&ids.vector[0])
 
-	sl := &reflect.SliceHeader{
-		uintptr(head), len(keys), len(keys),
-	}
-	vector := *(*[]C.jsid)(unsafe.Pointer(sl))
-	for i := 0; i < len(keys); i++ {
-		id := vector[i]
-		ckey := C.JS_EncodeString(o.cx.jscx, C.JSID_TO_STRING(id))
-		gkey := C.GoString(ckey)
-		C.JS_free(o.cx.jscx, unsafe.Pointer(ckey))
-		keys[i] = gkey
-	}
+		sl := &reflect.SliceHeader{
+			uintptr(head), len(keys), len(keys),
+		}
+		vector := *(*[]C.jsid)(unsafe.Pointer(sl))
+		for i := 0; i < len(keys); i++ {
+			id := vector[i]
+			ckey := C.JS_EncodeString(o.cx.jscx, C.JSID_TO_STRING(id))
+			gkey := C.GoString(ckey)
+			C.JS_free(o.cx.jscx, unsafe.Pointer(ckey))
+			keys[i] = gkey
+		}
 
-	return keys
+		result = keys
+	})
+
+	return result
 }
 
 func (o *Object) SetProperty(name string, v *Value) bool {
-	o.cx.rt.lock()
-	defer o.cx.rt.unlock()
+	var result bool
 
-	cname := C.CString(name)
-	defer C.free(unsafe.Pointer(cname))
+	o.cx.rt.dowork(func() {
+		cname := C.CString(name)
+		defer C.free(unsafe.Pointer(cname))
 
-	return C.JS_SetProperty(o.cx.jscx, o.obj, cname, &v.val) == C.JS_TRUE
+		result = C.JS_SetProperty(o.cx.jscx, o.obj, cname, &v.val) == C.JS_TRUE
+	})
+
+	return result
 }
 
 type JsPropertyAttrs uint
@@ -172,47 +183,48 @@ func call_go_setter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 }
 
 func (o *Object) DefineProperty(name string, value *Value, getter JsPropertyGetter, setter JsPropertySetter, attrs JsPropertyAttrs) bool {
-	o.cx.rt.lock()
-	defer o.cx.rt.unlock()
+	var result bool
 
-	if C.JS_IsArrayObject(o.cx.jscx, o.obj) == C.JS_TRUE {
-		panic("Could't define property on array.")
-	}
-
-	cname := C.CString(name)
-	defer C.free(unsafe.Pointer(cname))
-
-	var r C.JSBool
-
-	if getter != nil && setter != nil {
-		r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, C.the_go_getter_callback, C.the_go_setter_callback, C.uintN(uint(attrs))|C.JSPROP_SHARED)
-	} else if getter != nil && setter == nil {
-		r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, C.the_go_getter_callback, nil, C.uintN(uint(attrs)))
-	} else if getter == nil && setter != nil {
-		r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, nil, C.the_go_setter_callback, C.uintN(uint(attrs)))
-	} else {
-		panic("The getter and setter both nil")
-	}
-
-	if r == C.JS_TRUE {
-		if getter != nil {
-			if o.getters == nil {
-				o.getters = make(map[string]JsPropertyGetter)
-			}
-			o.getters[name] = getter
+	o.cx.rt.dowork(func() {
+		if C.JS_IsArrayObject(o.cx.jscx, o.obj) == C.JS_TRUE {
+			panic("Could't define property on array.")
 		}
 
-		if setter != nil {
-			if o.setters == nil {
-				o.setters = make(map[string]JsPropertySetter)
-			}
-			o.setters[name] = setter
+		cname := C.CString(name)
+		defer C.free(unsafe.Pointer(cname))
+
+		var r C.JSBool
+
+		if getter != nil && setter != nil {
+			r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, C.the_go_getter_callback, C.the_go_setter_callback, C.uintN(uint(attrs))|C.JSPROP_SHARED)
+		} else if getter != nil && setter == nil {
+			r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, C.the_go_getter_callback, nil, C.uintN(uint(attrs)))
+		} else if getter == nil && setter != nil {
+			r = C.JS_DefineProperty(o.cx.jscx, o.obj, cname, value.val, nil, C.the_go_setter_callback, C.uintN(uint(attrs)))
+		} else {
+			panic("The getter and setter both nil")
 		}
 
-		return true
-	}
+		if r == C.JS_TRUE {
+			if getter != nil {
+				if o.getters == nil {
+					o.getters = make(map[string]JsPropertyGetter)
+				}
+				o.getters[name] = getter
+			}
 
-	return false
+			if setter != nil {
+				if o.setters == nil {
+					o.setters = make(map[string]JsPropertySetter)
+				}
+				o.setters[name] = setter
+			}
+
+			result = true
+		}
+	})
+
+	return result
 }
 
 //export call_go_obj_func
@@ -240,23 +252,26 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 // @name     The function name
 // @callback The function implement
 func (o *Object) DefineFunction(name string, callback JsObjectFunc) bool {
-	o.cx.rt.lock()
-	defer o.cx.rt.unlock()
+	var result bool
 
-	cname := C.CString(name)
-	defer C.free(unsafe.Pointer(cname))
+	o.cx.rt.dowork(func() {
+		cname := C.CString(name)
+		defer C.free(unsafe.Pointer(cname))
 
-	if C.JS_DefineFunction(o.cx.jscx, o.obj, cname, C.the_go_obj_func_callback, 0, 0) == nil {
-		return false
-	}
+		if C.JS_DefineFunction(o.cx.jscx, o.obj, cname, C.the_go_obj_func_callback, 0, 0) == nil {
+			result = false
+		}
 
-	if o.funcs == nil {
-		o.funcs = make(map[string]JsObjectFunc)
-	}
+		if o.funcs == nil {
+			o.funcs = make(map[string]JsObjectFunc)
+		}
 
-	o.funcs[name] = callback
+		o.funcs[name] = callback
 
-	return true
+		result = true
+	})
+
+	return result
 }
 
 /*
