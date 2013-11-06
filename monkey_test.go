@@ -26,16 +26,16 @@ func init() {
 		return b;
 	}`)
 
-	cx.DefineFunction("add2", func(cx *Context, argv []*Value) *Value {
-		var a, _ = argv[0].ToInt()
-		var b, _ = argv[1].ToInt()
-		return cx.Int(a + b)
+	cx.DefineFunction("add2", func(f *Func) {
+		var a, _ = f.Argv(0).ToInt()
+		var b, _ = f.Argv(1).ToInt()
+		f.Return(f.Context().Int(a + b))
 	})
 
-	cx.DefineFunction("ooxx2", func(cx *Context, argv []*Value) *Value {
-		var a, _ = argv[0].ToNumber()
-		var b, _ = argv[1].ToNumber()
-		return cx.Number(ooxx(a, b))
+	cx.DefineFunction("ooxx2", func(f *Func) {
+		var a, _ = f.Argv(0).ToNumber()
+		var b, _ = f.Argv(1).ToNumber()
+		f.Return(f.Context().Number(ooxx(a, b)))
 	})
 
 	script1 = cx.Compile("1 + 1", "script1", 0)
