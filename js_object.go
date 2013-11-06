@@ -82,7 +82,7 @@ func (o *Object) SetPrivate(gval interface{}) {
 
 func (o *Object) ToValue() *Value {
 	var result *Value
-	o.cx.rt.dowork(func() {
+	o.cx.rt.Use(func() {
 		result = newValue(o.cx, C.OBJECT_TO_JSVAL(o.obj))
 	})
 	return result
@@ -91,7 +91,7 @@ func (o *Object) ToValue() *Value {
 func (o *Object) GetProperty(name string) *Value {
 	var result *Value
 
-	o.cx.rt.dowork(func() {
+	o.cx.rt.Use(func() {
 		cname := C.CString(name)
 		defer C.free(unsafe.Pointer(cname))
 
@@ -107,7 +107,7 @@ func (o *Object) GetProperty(name string) *Value {
 func (o *Object) Keys() []string {
 	var result []string
 
-	o.cx.rt.dowork(func() {
+	o.cx.rt.Use(func() {
 		ids := C.JS_Enumerate(o.cx.jscx, o.obj)
 		if ids == nil {
 			panic("enumerate failed")
@@ -138,7 +138,7 @@ func (o *Object) Keys() []string {
 func (o *Object) SetProperty(name string, v *Value) bool {
 	var result bool
 
-	o.cx.rt.dowork(func() {
+	o.cx.rt.Use(func() {
 		cname := C.CString(name)
 		defer C.free(unsafe.Pointer(cname))
 
@@ -238,7 +238,7 @@ func call_go_setter(obj unsafe.Pointer, name *C.char, val *C.jsval) C.JSBool {
 func (o *Object) DefineProperty(name string, value *Value, getter JsPropertyGetter, setter JsPropertySetter, attrs JsPropertyAttrs) bool {
 	var result bool
 
-	o.cx.rt.dowork(func() {
+	o.cx.rt.Use(func() {
 		if C.JS_IsArrayObject(o.cx.jscx, o.obj) == C.JS_TRUE {
 			panic("Could't define property on array.")
 		}
@@ -307,7 +307,7 @@ func call_go_obj_func(op unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval
 func (o *Object) DefineFunction(name string, callback JsObjectFunc) bool {
 	var result bool
 
-	o.cx.rt.dowork(func() {
+	o.cx.rt.Use(func() {
 		cname := C.CString(name)
 		defer C.free(unsafe.Pointer(cname))
 

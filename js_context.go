@@ -23,7 +23,7 @@ type Context struct {
 func (r *Runtime) NewContext() *Context {
 	var result *Context
 
-	r.dowork(func() {
+	r.Use(func() {
 		c := new(Context)
 		c.rt = r
 
@@ -111,7 +111,7 @@ func (c *Context) SetErrorReporter(reporter ErrorReporter) {
 func (c *Context) Eval(script string) *Value {
 	var result *Value
 
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		cscript := C.CString(script)
 		defer C.free(unsafe.Pointer(cscript))
 
@@ -150,7 +150,7 @@ func (s *Script) Runtime() *Runtime {
 func (s *Script) Execute() *Value {
 	var result *Value
 
-	s.cx.rt.dowork(func() {
+	s.cx.rt.Use(func() {
 		var rval C.jsval
 		if C.JS_ExecuteScript(s.cx.jscx, s.cx.jsglobal, s.obj, &rval) == C.JS_TRUE {
 			result = newValue(s.cx, rval)
@@ -164,7 +164,7 @@ func (s *Script) Execute() *Value {
 func (s *Script) ExecuteIn(cx *Context) *Value {
 	var result *Value
 
-	cx.rt.dowork(func() {
+	cx.rt.Use(func() {
 		var rval C.jsval
 		if C.JS_ExecuteScript(cx.jscx, cx.jsglobal, s.obj, &rval) == C.JS_TRUE {
 			result = newValue(cx, rval)
@@ -179,7 +179,7 @@ func (s *Script) ExecuteIn(cx *Context) *Value {
 func (c *Context) Compile(code, filename string, lineno int) *Script {
 	var result *Script
 
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		ccode := C.CString(code)
 		defer C.free(unsafe.Pointer(ccode))
 
@@ -268,7 +268,7 @@ func call_go_func(c unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.J
 func (c *Context) DefineFunction(name string, callback JsFunc) bool {
 	var result bool
 
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		cname := C.CString(name)
 		defer C.free(unsafe.Pointer(cname))
 
@@ -295,7 +295,7 @@ func (c *Context) Runtime() *Runtime {
 // Warp null
 func (c *Context) Null() *Value {
 	var result *Value
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		result = newValue(c, C.GET_NULL())
 	})
 	return result
@@ -304,7 +304,7 @@ func (c *Context) Null() *Value {
 // Warp void
 func (c *Context) Void() *Value {
 	var result *Value
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		result = newValue(c, C.GET_VOID())
 	})
 	return result
@@ -313,7 +313,7 @@ func (c *Context) Void() *Value {
 // Warp integer
 func (c *Context) Int(v int32) *Value {
 	var result *Value
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		result = newValue(c, C.INT_TO_JSVAL(C.int32(v)))
 	})
 	return result
@@ -322,7 +322,7 @@ func (c *Context) Int(v int32) *Value {
 // Warp float
 func (c *Context) Number(v float64) *Value {
 	var result *Value
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		result = newValue(c, C.DOUBLE_TO_JSVAL(C.jsdouble(v)))
 	})
 	return result
@@ -331,7 +331,7 @@ func (c *Context) Number(v float64) *Value {
 // Warp string
 func (c *Context) String(v string) *Value {
 	var result *Value
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		cv := C.CString(v)
 		defer C.free(unsafe.Pointer(cv))
 
@@ -343,7 +343,7 @@ func (c *Context) String(v string) *Value {
 // Warp boolean
 func (c *Context) Boolean(v bool) *Value {
 	var result *Value
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		if v {
 			result = newValue(c, C.JS_TRUE)
 		} else {
@@ -356,7 +356,7 @@ func (c *Context) Boolean(v bool) *Value {
 // Create an empty array, like: []
 func (c *Context) NewArray() *Array {
 	var result *Array
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		result = newArray(c, C.JS_NewArrayObject(c.jscx, 0, nil))
 	})
 	return result
@@ -365,7 +365,7 @@ func (c *Context) NewArray() *Array {
 // Create an empty object, like: {}
 func (c *Context) NewObject(gval interface{}) *Object {
 	var result *Object
-	c.rt.dowork(func() {
+	c.rt.Use(func() {
 		result = newObject(c, C.JS_NewObject(c.jscx, nil, nil, nil), gval)
 	})
 	return result

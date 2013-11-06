@@ -33,7 +33,7 @@ func (a *Array) ToValue() *Value {
 
 func (a *Array) GetLength() int {
 	var result int = -1
-	a.cx.rt.dowork(func() {
+	a.cx.rt.Use(func() {
 		var l C.jsuint
 		if C.JS_GetArrayLength(a.cx.jscx, a.obj, &l) == C.JS_TRUE {
 			result = int(l)
@@ -44,7 +44,7 @@ func (a *Array) GetLength() int {
 
 func (a *Array) SetLength(length int) bool {
 	var result bool
-	a.cx.rt.dowork(func() {
+	a.cx.rt.Use(func() {
 		result = C.JS_SetArrayLength(a.cx.jscx, a.obj, C.jsuint(length)) == C.JS_TRUE
 	})
 	return result
@@ -52,7 +52,7 @@ func (a *Array) SetLength(length int) bool {
 
 func (a *Array) GetElement(index int) *Value {
 	var result *Value
-	a.cx.rt.dowork(func() {
+	a.cx.rt.Use(func() {
 		var rval C.jsval
 		if C.JS_GetElement(a.cx.jscx, a.obj, C.jsint(index), &rval) == C.JS_TRUE {
 			result = newValue(a.cx, rval)
@@ -63,7 +63,7 @@ func (a *Array) GetElement(index int) *Value {
 
 func (a *Array) SetElement(index int, v *Value) bool {
 	var result bool
-	a.cx.rt.dowork(func() {
+	a.cx.rt.Use(func() {
 		result = C.JS_SetElement(a.cx.jscx, a.obj, C.jsint(index), &v.val) == C.JS_TRUE
 	})
 	return result

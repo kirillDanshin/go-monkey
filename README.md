@@ -5,20 +5,26 @@ This package is SpiderMonkey wrapper for Go.
 
 You can use this package to embed JavaScript into your Go program.
 
-This package just newborn, use in production enviroment at your own risk!
-
 Why make
 ========
 
-You can found "go-v8" or "gomonkey" project on the github.
+You can found some project like "go-v8" and "gomonkey" on GitHub.
 
-Thy have same purpose: Embed JavaScript into Golang program, make it more dynamic.
+Thy have same purpose: Embed JavaScript into Go program, make it more dynamic.
 
 But I found all of existing projects are not powerful enough.
 
 For example "go-v8" use JSON to pass data between Go and JavaScript, each callback has a significant performance cost.
 
-So I make one by myself.
+And those packages all have thread-safe problem. 
+
+V8 and SpiderMonkey both use thread-local storage. 
+
+Embed them into Go program, you need to make sure each JS runtime used by creator thread only.
+
+So monkey born.
+
+It has a rich API and can be freely used in any multi-goroutine Go program.
 
 Install
 =======
@@ -43,6 +49,33 @@ And then install Monkey by "go get" command.
 
 ```
 go get github.com/realint/monkey
+```
+
+Performance
+===========
+
+There are some benchmark test in "monkey_test.go".
+
+You can run those test like this:
+
+```
+go test -bench="."
+```
+
+The benchmark result on my Mac:
+
+```
+Benchmark_ADD_IN_JS           200000     13410 ns/op
+Benchmark_ADD_BY_JS           200000     15265 ns/op
+Benchmark_ADD_BY_GO           100000     24779 ns/op
+Benchmark_OOXX_IN_JS           10000    271113 ns/op
+Benchmark_OOXX_IN_GO           50000     57133 ns/op
+Benchmark_OOXX_BY_GO           20000     81031 ns/op
+Benchmark_ADD_IN_JS_IN_USE   1000000      1446 ns/op
+Benchmark_ADD_BY_JS_IN_USE   1000000      1427 ns/op
+Benchmark_ADD_BY_GO_IN_USE    500000      7139 ns/op
+Benchmark_OOXX_IN_JS_IN_USE    10000    262562 ns/op
+Benchmark_OOXX_BY_GO_IN_USE    50000     63353 ns/op
 ```
 
 Examples

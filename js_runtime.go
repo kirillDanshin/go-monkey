@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 )
 
+var defaultRuntime Runtime
+
 // JavaScript Runtime
 type Runtime struct {
 	maxbytes       uint32
@@ -65,7 +67,7 @@ func (r *Runtime) init() {
 		return
 	}
 
-	r.workChan = make(chan jswork)
+	r.workChan = make(chan jswork, 20)
 	r.closeChan = make(chan int, 1)
 	r.ctxDisposeChan = make(chan *Context, 50)
 	r.objDisposeChan = make(chan *Object, 100)
@@ -103,13 +105,16 @@ L:
 	C.JS_DestroyRuntime(r.jsrt)
 }
 
-func (r *Runtime) dowork(callback func()) {
+// Exeucte the callback in runtime creator thread.
+// Use this method to avoid Monkey internal call it many times.
+// See the benchmarks in "monkey_test.go".
+func (r *Runtime) Use(callback func()) {
 	if goid.Get() == r.goid {
 		callback()
 	} else {
 		work := jswork{
 			callback:   callback,
-			resultChan: make(chan int),
+			resultChan: make(chan int, 1),
 		}
 
 		r.workChan <- work

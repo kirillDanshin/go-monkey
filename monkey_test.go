@@ -182,3 +182,47 @@ func Benchmark_OOXX_BY_GO(b *testing.B) {
 		script5.Execute()
 	}
 }
+
+//
+// Benchmark in runtime.Use()
+//
+
+func Benchmark_ADD_IN_JS_IN_USE(b *testing.B) {
+	rt.Use(func() {
+		for i := 0; i < b.N; i++ {
+			script1.Execute()
+		}
+	})
+}
+
+func Benchmark_ADD_BY_JS_IN_USE(b *testing.B) {
+	rt.Use(func() {
+		for i := 0; i < b.N; i++ {
+			script2.Execute()
+		}
+	})
+}
+
+func Benchmark_ADD_BY_GO_IN_USE(b *testing.B) {
+	rt.Use(func() {
+		for i := 0; i < b.N; i++ {
+			script3.Execute()
+		}
+	})
+}
+
+func Benchmark_OOXX_IN_JS_IN_USE(b *testing.B) {
+	rt.Use(func() {
+		for i := 0; i < b.N; i++ {
+			script4.Execute()
+		}
+	})
+}
+
+func Benchmark_OOXX_BY_GO_IN_USE(b *testing.B) {
+	rt.Use(func() {
+		for i := 0; i < b.N; i++ {
+			script5.Execute()
+		}
+	})
+}

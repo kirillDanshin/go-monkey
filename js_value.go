@@ -42,7 +42,7 @@ func (v *Value) String() string {
 
 func (v *Value) TypeName() string {
 	var result string
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		result = C.GoString(C.JS_GetTypeName(v.cx.jscx, C.JS_TypeOfValue(v.cx.jscx, v.val)))
 	})
 	return result
@@ -78,7 +78,7 @@ func (v *Value) IsObject() bool {
 
 func (v *Value) IsArray() bool {
 	var result bool
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		result = v.IsObject() && C.JS_IsArrayObject(
 			v.cx.jscx, C.JSVAL_TO_OBJECT(v.val),
 		) == C.JS_TRUE
@@ -88,7 +88,7 @@ func (v *Value) IsArray() bool {
 
 func (v *Value) IsFunction() bool {
 	var result bool
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		result = v.IsObject() && C.JS_ObjectIsFunction(
 			v.cx.jscx, C.JSVAL_TO_OBJECT(v.val),
 		) == C.JS_TRUE
@@ -101,7 +101,7 @@ func (v *Value) ToInt() (int32, bool) {
 	var result1 int32
 	var result2 bool
 
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		var r C.int32
 		if C.JS_ValueToInt32(v.cx.jscx, v.val, &r) == C.JS_TRUE {
 			result1, result2 = int32(r), true
@@ -116,7 +116,7 @@ func (v *Value) ToNumber() (float64, bool) {
 	var result1 float64
 	var result2 bool
 
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		var r C.jsdouble
 		if C.JS_ValueToNumber(v.cx.jscx, v.val, &r) == C.JS_TRUE {
 			result1, result2 = float64(r), true
@@ -131,7 +131,7 @@ func (v *Value) ToBoolean() (bool, bool) {
 	var result1 bool
 	var result2 bool
 
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		var r C.JSBool
 		if C.JS_ValueToBoolean(v.cx.jscx, v.val, &r) == C.JS_TRUE {
 			if r == C.JS_TRUE {
@@ -149,7 +149,7 @@ func (v *Value) ToBoolean() (bool, bool) {
 func (v *Value) ToString() string {
 	var result string
 
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		cstring := C.JS_EncodeString(v.cx.jscx, C.JS_ValueToString(v.cx.jscx, v.val))
 		gostring := C.GoString(cstring)
 		C.JS_free(v.cx.jscx, unsafe.Pointer(cstring))
@@ -164,7 +164,7 @@ func (v *Value) ToString() string {
 func (v *Value) ToObject() *Object {
 	var result *Object
 
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		var obj *C.JSObject
 		if C.JS_ValueToObject(v.cx.jscx, v.val, &obj) == C.JS_TRUE {
 			result = newObject(v.cx, obj, nil)
@@ -178,7 +178,7 @@ func (v *Value) ToObject() *Object {
 func (v *Value) ToArray() *Array {
 	var result *Array
 
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		var obj *C.JSObject
 		if C.JS_ValueToObject(v.cx.jscx, v.val, &obj) == C.JS_TRUE {
 			if C.JS_IsArrayObject(v.cx.jscx, obj) == C.JS_TRUE {
@@ -225,7 +225,7 @@ func (v *Value) ToGo() interface{} {
 func (v *Value) Call(argv []*Value) *Value {
 	var result *Value
 
-	v.cx.rt.dowork(func() {
+	v.cx.rt.Use(func() {
 		argv2 := make([]C.jsval, len(argv))
 		for i := 0; i < len(argv); i++ {
 			argv2[i] = argv[i].val
