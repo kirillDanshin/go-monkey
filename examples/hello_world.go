@@ -15,15 +15,13 @@ func main() {
 	println(value.ToString())
 
 	// Define a function and call it
-	context.DefineFunction("println",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			for i := 0; i < len(args); i++ {
-				fmt.Print(args[i])
-			}
-			fmt.Println()
-			return cx.Void()
-		},
-	)
+	context.DefineFunction("println", func(f *js.Func) {
+		for i := 0; i < f.Argc(); i++ {
+			fmt.Print(f.Argv(i))
+		}
+		fmt.Println()
+		f.Return(f.Context().Void())
+	})
 	context.Eval("println('Hello Function!')")
 
 	// Compile once, run many times

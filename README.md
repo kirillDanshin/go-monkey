@@ -79,15 +79,13 @@ func main() {
 	println(value.ToString())
 
 	// Define a function and call it
-	context.DefineFunction("println",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			for i := 0; i < len(args); i++ {
-				fmt.Print(args[i])
-			}
-			fmt.Println()
-			return cx.Void()
-		},
-	)
+	context.DefineFunction("println", func(f *js.Func) {
+		for i := 0; i < f.Argc(); i++ {
+			fmt.Print(f.Argv(i))
+		}
+		fmt.Println()
+		f.Return(f.Context().Void())
+	})
 	context.Eval("println('Hello Function!')")
 
 	// Compile once, run many times
@@ -121,6 +119,61 @@ Hello Compiler!
 Hello Compiler!
 Hello Compiler!
 Eval():0: ReferenceError: not_exists is not defined
+```
+
+Thread Safe
+-----------
+
+The "many\_many.go" shows Monkey is thread safe.
+
+```go
+package main
+
+import "fmt"
+import "sync"
+import "runtime"
+import js "github.com/realint/monkey"
+
+func assert(c bool) bool {
+	if !c {
+		panic("assert failed")
+	}
+	return c
+}
+
+func main() {
+	runtime.GOMAXPROCS(20)
+
+	// Create script runtime
+	runtime := js.NewRuntime(8 * 1024 * 1024)
+
+	// Create script context
+	context := runtime.NewContext()
+
+	context.DefineFunction("println", func(f *js.Func) {
+		for i := 0; i < f.Argc(); i++ {
+			fmt.Print(f.Argv(i))
+		}
+		fmt.Println()
+		f.Return(f.Context().Void())
+	})
+
+	wg := new(sync.WaitGroup)
+
+	// One runtime instance used by many goroutines
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			for j := 0; j < 100; j++ {
+				v := context.Eval("println('Hello World!')")
+				assert(v != nil)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+}
 ```
 
 Value
@@ -218,21 +271,19 @@ func main() {
 	}
 
 	// Define a function that return an object with function from Go
-	ok := context.DefineFunction("get_data",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			obj := cx.NewObject(nil)
+	ok := context.DefineFunction("get_data", func(f *js.Func) {
+		obj := f.Context().NewObject(nil)
 
-			ok := obj.DefineFunction("abc",
-				func(object *js.Object, name string, args []*js.Value) *js.Value {
-					return cx.Int(100)
-				},
-			)
+		ok := obj.DefineFunction("abc",
+			func(object *js.Object, name string, args []*js.Value) *js.Value {
+				return f.Context().Int(100)
+			},
+		)
 
-			assert(ok)
+		assert(ok)
 
-			return obj.ToValue()
-		},
-	)
+		f.Return(obj.ToValue())
+	})
 
 	assert(ok)
 
@@ -305,14 +356,12 @@ func main() {
 	}
 
 	// Return an array from Go
-	if ok := context.DefineFunction("get_data",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			array := cx.NewArray()
-			array.SetInt(0, 100)
-			array.SetInt(1, 200)
-			return array.ToValue()
-		},
-	); assert(ok) {
+	if ok := context.DefineFunction("get_data", func(f *js.Func) {
+		array := f.Context().NewArray()
+		array.SetInt(0, 100)
+		array.SetInt(1, 200)
+		f.Return(array.ToValue())
+	}); assert(ok) {
 		if value := context.Eval("get_data()"); assert(value != nil) {
 			// Check type
 			assert(value.IsArray())
@@ -379,14 +428,12 @@ func main() {
 	}
 
 	// Return and object From Go
-	ok := context.DefineFunction("get_data",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			obj := cx.NewObject(nil)
-			obj.SetInt("abc", 100)
-			obj.SetInt("def", 200)
-			return obj.ToValue()
-		},
-	)
+	ok := context.DefineFunction("get_data", func(f *js.Func) {
+		obj := f.Context().NewObject(nil)
+		obj.SetInt("abc", 100)
+		obj.SetInt("def", 200)
+		f.Return(obj.ToValue())
+	})
 
 	assert(ok)
 
@@ -437,44 +484,43 @@ func main() {
 	context := runtime.NewContext()
 
 	// Return Object With Property Getter And Setter From Go
-	ok := context.DefineFunction("get_data",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			obj := cx.NewObject(&T{123})
+	ok := context.DefineFunction("get_data", func(f *js.Func) {
+		cx := f.Context()
+		obj := cx.NewObject(&T{123})
 
-			// Define the property 'abc' with getter and setter
-			ok := obj.DefineProperty("abc",
-				// Init value
-				cx.Void(),
-				// T getter callback called each time
-				// JavaScript code accesses the property's value
-				func(o *js.Object, name string) *js.Value {
-					t := o.GetPrivate().(*T)
-					if name == "abc" {
-						return cx.Int(t.abc)
-					} else {
-						panic("undefined property " + name)
-					}
-				},
-				// The setter callback is called each time
-				// JavaScript code assigns to the property
-				func(o *js.Object, name string, val *js.Value) {
-					t := o.GetPrivate().(*T)
-					if name == "abc" {
-						d, ok := val.ToInt()
-						assert(ok)
-						t.abc = d
-					} else {
-						panic("undefined property " + name)
-					}
-				},
-				0,
-			)
+		// Define the property 'abc' with getter and setter
+		ok := obj.DefineProperty("abc",
+			// Init value
+			cx.Void(),
+			// T getter callback called each time
+			// JavaScript code accesses the property's value
+			func(g *js.Getter) {
+				t := g.Object().GetPrivate().(*T)
+				if g.Name() == "abc" {
+					g.Return(cx.Int(t.abc))
+				} else {
+					panic("undefined property " + g.Name())
+				}
+			},
+			// The setter callback is called each time
+			// JavaScript code assigns to the property
+			func(s *js.Setter) {
+				t := s.Object().GetPrivate().(*T)
+				if s.Name() == "abc" {
+					d, ok := s.Value().ToInt()
+					assert(ok)
+					t.abc = d
+				} else {
+					panic("undefined property " + s.Name())
+				}
+			},
+			0,
+		)
 
-			assert(ok)
+		assert(ok)
 
-			return obj.ToValue()
-		},
-	)
+		f.Return(obj.ToValue())
+	})
 
 	assert(ok)
 
@@ -539,59 +585,3 @@ func main() {
 }
 ```
 
-Thread Safe
------------
-
-The "many\_many.go" shows Monkey is thread safe.
-
-```go
-package main
-
-import "fmt"
-import "sync"
-import "runtime"
-import js "github.com/realint/monkey"
-
-func assert(c bool) bool {
-	if !c {
-		panic("assert failed")
-	}
-	return c
-}
-
-func main() {
-	runtime.GOMAXPROCS(20)
-
-	// Create script runtime
-	runtime := js.NewRuntime(8 * 1024 * 1024)
-
-	// Create script context
-	context := runtime.NewContext()
-
-	context.DefineFunction("println",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			for i := 0; i < len(args); i++ {
-				fmt.Print(args[i])
-			}
-			fmt.Println()
-			return cx.Void()
-		},
-	)
-
-	wg := new(sync.WaitGroup)
-
-	// One runtime instance used by many goroutines
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			for j := 0; j < 100; j++ {
-				v := context.Eval("println('Hello World!')")
-				assert(v != nil)
-			}
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
-}
-```

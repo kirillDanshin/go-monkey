@@ -48,14 +48,12 @@ func main() {
 	}
 
 	// Return an array from Go
-	if ok := context.DefineFunction("get_data",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			array := cx.NewArray()
-			array.SetInt(0, 100)
-			array.SetInt(1, 200)
-			return array.ToValue()
-		},
-	); assert(ok) {
+	if ok := context.DefineFunction("get_data", func(f *js.Func) {
+		array := f.Context().NewArray()
+		array.SetInt(0, 100)
+		array.SetInt(1, 200)
+		f.Return(array.ToValue())
+	}); assert(ok) {
 		if value := context.Eval("get_data()"); assert(value != nil) {
 			// Check type
 			assert(value.IsArray())

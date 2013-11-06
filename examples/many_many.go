@@ -21,15 +21,13 @@ func main() {
 	// Create script context
 	context := runtime.NewContext()
 
-	context.DefineFunction("println",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			for i := 0; i < len(args); i++ {
-				fmt.Print(args[i])
-			}
-			fmt.Println()
-			return cx.Void()
-		},
-	)
+	context.DefineFunction("println", func(f *js.Func) {
+		for i := 0; i < f.Argc(); i++ {
+			fmt.Print(f.Argv(i))
+		}
+		fmt.Println()
+		f.Return(f.Context().Void())
+	})
 
 	wg := new(sync.WaitGroup)
 

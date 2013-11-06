@@ -21,44 +21,43 @@ func main() {
 	context := runtime.NewContext()
 
 	// Return Object With Property Getter And Setter From Go
-	ok := context.DefineFunction("get_data",
-		func(cx *js.Context, args []*js.Value) *js.Value {
-			obj := cx.NewObject(&T{123})
+	ok := context.DefineFunction("get_data", func(f *js.Func) {
+		cx := f.Context()
+		obj := cx.NewObject(&T{123})
 
-			// Define the property 'abc' with getter and setter
-			ok := obj.DefineProperty("abc",
-				// Init value
-				cx.Void(),
-				// T getter callback called each time
-				// JavaScript code accesses the property's value
-				func(o *js.Object, name string) *js.Value {
-					t := o.GetPrivate().(*T)
-					if name == "abc" {
-						return cx.Int(t.abc)
-					} else {
-						panic("undefined property " + name)
-					}
-				},
-				// The setter callback is called each time
-				// JavaScript code assigns to the property
-				func(o *js.Object, name string, val *js.Value) {
-					t := o.GetPrivate().(*T)
-					if name == "abc" {
-						d, ok := val.ToInt()
-						assert(ok)
-						t.abc = d
-					} else {
-						panic("undefined property " + name)
-					}
-				},
-				0,
-			)
+		// Define the property 'abc' with getter and setter
+		ok := obj.DefineProperty("abc",
+			// Init value
+			cx.Void(),
+			// T getter callback called each time
+			// JavaScript code accesses the property's value
+			func(g *js.Getter) {
+				t := g.Object().GetPrivate().(*T)
+				if g.Name() == "abc" {
+					g.Return(cx.Int(t.abc))
+				} else {
+					panic("undefined property " + g.Name())
+				}
+			},
+			// The setter callback is called each time
+			// JavaScript code assigns to the property
+			func(s *js.Setter) {
+				t := s.Object().GetPrivate().(*T)
+				if s.Name() == "abc" {
+					d, ok := s.Value().ToInt()
+					assert(ok)
+					t.abc = d
+				} else {
+					panic("undefined property " + s.Name())
+				}
+			},
+			0,
+		)
 
-			assert(ok)
+		assert(ok)
 
-			return obj.ToValue()
-		},
-	)
+		f.Return(obj.ToValue())
+	})
 
 	assert(ok)
 

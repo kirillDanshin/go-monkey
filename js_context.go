@@ -116,12 +116,7 @@ func (c *Context) Eval(script string) *Value {
 		defer C.free(unsafe.Pointer(cscript))
 
 		var rval C.jsval
-		if C.JS_EvaluateScript(
-			c.jscx, c.jsglobal,
-			cscript, C.uintN(len(script)),
-			C.eval_filename, 0,
-			&rval,
-		) == C.JS_TRUE {
+		if C.JS_EvaluateScript(c.jscx, c.jsglobal, cscript, C.uintN(len(script)), C.eval_filename, 0, &rval) == C.JS_TRUE {
 			result = newValue(c, rval)
 		}
 	})
@@ -209,22 +204,58 @@ func (c *Context) Compile(code, filename string, lineno int) *Script {
 	return result
 }
 
-type JsFunc func(context *Context, argv []*Value) *Value
+// Go defined JS function callback info
+type Func struct {
+	context *Context
+	name    string
+	args    []*Value
+	result  *Value
+}
+
+func (f *Func) Context() *Context {
+	return f.context
+}
+
+func (f *Func) Name() string {
+	return f.name
+}
+
+func (f *Func) Argc() int {
+	return len(f.args)
+}
+
+func (f *Func) Argv(n int) *Value {
+	return f.args[n]
+}
+
+func (f *Func) Return(v *Value) {
+	f.result = v
+}
+
+// Go defined JS function callback
+type JsFunc func(f *Func)
 
 //export call_go_func
 func call_go_func(c unsafe.Pointer, name *C.char, argc C.uintN, vp *C.jsval) C.JSBool {
 	var context = (*Context)(c)
 
-	var argv = make([]*Value, int(argc))
+	var args = make([]*Value, int(argc))
 
-	for i := 0; i < len(argv); i++ {
-		argv[i] = newValue(context, C.GET_ARGV(context.jscx, vp, C.int(i)))
+	for i := 0; i < len(args); i++ {
+		args[i] = newValue(context, C.GET_ARGV(context.jscx, vp, C.int(i)))
 	}
 
-	var result = context.funcs[C.GoString(name)](context, argv)
+	var gname = C.GoString(name)
+	var f = Func{
+		context: context,
+		name:    gname,
+		args:    args,
+	}
 
-	if result != nil {
-		C.SET_RVAL(context.jscx, vp, result.val)
+	context.funcs[gname](&f)
+
+	if f.result != nil {
+		C.SET_RVAL(context.jscx, vp, f.result.val)
 		return C.JS_TRUE
 	}
 
