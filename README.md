@@ -5,25 +5,6 @@ This package is SpiderMonkey wrapper for Go.
 
 You can use this package to embed JavaScript into your Go program.
 
-Why make
-========
-
-You can found some project like "go-v8" and "gomonkey" on GitHub.
-
-Thy have same purpose: Embed JavaScript into Go program, make it more dynamic.
-
-But I found all of existing projects are not powerful enough.
-
-For example "go-v8" use JSON to pass data between Go and JavaScript, each callback has a significant performance cost.
-
-And those packages all have thread-safe problem. 
-
-V8 and SpiderMonkey both use thread-local storage. 
-
-Embed them into Go program, you need to make sure each JS runtime used by creator thread only.
-
-So monkey born.
-
 It has a rich API and can be freely used in any multi-goroutine Go program.
 
 Install
