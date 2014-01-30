@@ -8,7 +8,7 @@ package monkey
 */
 import "C"
 import (
-	"github.com/realint/monkey/goid"
+	"github.com/chrisfarms/monkey/goid"
 	"runtime"
 	"sync/atomic"
 )

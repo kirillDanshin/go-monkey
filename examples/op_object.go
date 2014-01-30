@@ -1,6 +1,6 @@
 package main
 
-import js "github.com/realint/monkey"
+import js "github.com/chrisfarms/monkey"
 
 func assert(c bool) bool {
 	if !c {

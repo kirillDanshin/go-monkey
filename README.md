@@ -29,7 +29,7 @@ Or compile by yourself ([reference](https://developer.mozilla.org/en-US/docs/Spi
 And then install Monkey by "go get" command.
 
 ```
-go get github.com/realint/monkey
+go get github.com/chrisfarms/monkey
 ```
 
 Performance
@@ -79,7 +79,7 @@ The "hello\_world.go" shows what Monkey can do.
 package main
 
 import "fmt"
-import js "github.com/realint/monkey"
+import js "github.com/chrisfarms/monkey"
 
 func main() {
 	// Create script runtime
@@ -146,7 +146,7 @@ package main
 import "fmt"
 import "sync"
 import "runtime"
-import js "github.com/realint/monkey"
+import js "github.com/chrisfarms/monkey"
 
 func assert(c bool) bool {
 	if !c {
@@ -198,7 +198,7 @@ The "op_value.go" shows how to convert JS value to Go value.
 ```go
 package main
 
-import js "github.com/realint/monkey"
+import js "github.com/chrisfarms/monkey"
 
 func assert(c bool) bool {
 	if !c {
@@ -248,7 +248,7 @@ The "op_func.go" shows how to play with JS function value.
 ```go
 package main
 
-import js "github.com/realint/monkey"
+import js "github.com/chrisfarms/monkey"
 
 func assert(c bool) bool {
 	if !c {
@@ -322,7 +322,7 @@ The "op_array.go" shows how to play with JS array.
 ```go
 package main
 
-import js "github.com/realint/monkey"
+import js "github.com/chrisfarms/monkey"
 
 func assert(c bool) bool {
 	if !c {
@@ -407,7 +407,7 @@ The "op_object.go" shows how to play with JS object.
 ```go
 package main
 
-import js "github.com/realint/monkey"
+import js "github.com/chrisfarms/monkey"
 
 func assert(c bool) bool {
 	if !c {
@@ -477,7 +477,7 @@ The "op_prop.go" shows how to handle JavaScript object's property in Go.
 ```go
 package main
 
-import js "github.com/realint/monkey"
+import js "github.com/chrisfarms/monkey"
 
 func assert(c bool) bool {
 	if !c {
