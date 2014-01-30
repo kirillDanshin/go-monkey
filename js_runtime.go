@@ -39,6 +39,7 @@ type jswork struct {
 // Initializes the JavaScript runtime.
 // @maxbytes Maximum number of allocated bytes after which garbage collection is run.
 func NewRuntime(maxbytes uint32) *Runtime {
+	C.JS_SetCStringsAreUTF8()
 	r := new(Runtime)
 	r.maxbytes = maxbytes
 	r.initChan = make(chan bool)
