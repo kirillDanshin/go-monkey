@@ -18,7 +18,6 @@ type Context struct {
 	funcs         map[string]JsFunc
 	errorReporter ErrorReporter
 	disposed      int64
-	inRootScope   int
 }
 
 func (r *Runtime) NewContext() *Context {
@@ -123,17 +122,6 @@ func (c *Context) Eval(script string) *Value {
 	})
 
 	return result
-}
-
-// 
-func (c *Context) UseInRootScope(fn func() bool) {
-	c.rt.Use(func(){
-		ok := C.JS_EnterLocalRootScope(c.jscx) == C.JS_TRUE
-		fn()
-		if ok {
-			C.JS_LeaveLocalRootScope(c.jscx)
-		}
-	})
 }
 
 // Compiled Script
