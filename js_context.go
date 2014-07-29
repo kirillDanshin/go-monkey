@@ -124,6 +124,14 @@ func (c *Context) Eval(script string) *Value {
 	return result
 }
 
+// 
+func (c *Context) EnterLocalRootScope() (ok bool) {
+	c.rt.Use(func() {
+		ok = C.JS_EnterLocalRootScope(c.jscx) == C.JS_TRUE {
+	})
+	return ok
+}
+
 // Compiled Script
 type Script struct {
 	cx       *Context
