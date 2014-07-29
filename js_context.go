@@ -298,7 +298,7 @@ func (c *Context) Runtime() *Runtime {
 }
 
 type resumer struct {
-	ref *C.jsrefcount
+	ref C.jsrefcount
 	c *Context
 }
 
