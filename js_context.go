@@ -297,6 +297,23 @@ func (c *Context) Runtime() *Runtime {
 	return c.rt
 }
 
+type resumer struct {
+	ref *C.jsrefcount
+	c *Context
+}
+
+func (r *resumer) Resume() {
+	C.JS_ResumeRequest(r.c.jscx, r.ref)
+}
+// To perform some long running processes outside of the current request
+// call Suspend() followed later by Resume()
+func (c *Context) Suspend() *C.jsrefcount {
+	return &resumer{
+		ref: C.JS_SuspendRequest(c.jscx),
+		c: c,
+	}
+}
+
 // Warp null
 func (c *Context) Null() *Value {
 	var result *Value
