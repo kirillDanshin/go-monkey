@@ -288,6 +288,11 @@ func (c *Context) DefineFunction(name string, callback JsFunc) bool {
 	return result
 }
 
+// Retrieves a context's global object. (In JavaScript, global variables are stored as properties of the global object.)
+func (c *Context) GlobalObject() *Object {
+	return &Object{c, c.jsglobal}
+}
+
 func (c *Context) Runtime() *Runtime {
 	return c.rt
 }
