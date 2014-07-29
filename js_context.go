@@ -125,11 +125,13 @@ func (c *Context) Eval(script string) *Value {
 }
 
 // 
-func (c *Context) EnterLocalRootScope() (ok bool) {
-	c.rt.Use(func() {
-		ok = C.JS_EnterLocalRootScope(c.jscx) == C.JS_TRUE {
+func (c *Context) UseInRootScope(fn func() bool) {
+	c.rt.Use(func(){
+		if C.JS_EnterLocalRootScope(c.jscx) == C.JS_TRUE {
+			fn()
+			C.JS_LeaveLocalRootScope(c.jscx)
+		}
 	})
-	return ok
 }
 
 // Compiled Script
