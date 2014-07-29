@@ -307,7 +307,7 @@ func (r *resumer) Resume() {
 }
 // To perform some long running processes outside of the current request
 // call Suspend() followed later by Resume()
-func (c *Context) Suspend() *C.jsrefcount {
+func (c *Context) Suspend() *resumer {
 	return &resumer{
 		ref: C.JS_SuspendRequest(c.jscx),
 		c: c,
