@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"sync/atomic"
 
-	"github.com/kirillDanshin/go-monkey/goid"
+	"github.com/huandu/goroutine"
 )
 
 var defaultRuntime Runtime
@@ -20,7 +20,7 @@ var defaultRuntime Runtime
 type Runtime struct {
 	maxbytes       uint32
 	jsrt           *C.JSRuntime
-	goid           int32
+	goid           int64
 	disposed       int64
 	initChan       chan bool
 	workChan       chan jswork
@@ -61,7 +61,7 @@ func (r *Runtime) init() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	r.goid = goid.Get()
+	r.goid = goroutine.GoroutineId()
 
 	r.jsrt = C.JS_NewRuntime(C.uint32(r.maxbytes))
 	if r.jsrt == nil {
@@ -111,7 +111,7 @@ L:
 // Use this method to avoid Monkey internal call it many times.
 // See the benchmarks in "monkey_test.go".
 func (r *Runtime) Use(callback func()) {
-	if goid.Get() == r.goid {
+	if goroutine.GoroutineId() == r.goid {
 		callback()
 	} else {
 		work := jswork{

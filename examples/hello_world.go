@@ -1,7 +1,7 @@
 package main
 
 import "fmt"
-import js "github.com/chrisfarms/monkey"
+import js "github.com/kirillDanshin/monkey"
 
 func main() {
 	// Create script runtime

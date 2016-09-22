@@ -1,6 +1,6 @@
 package main
 
-import js "github.com/chrisfarms/monkey"
+import js "github.com/kirillDanshin/monkey"
 
 func assert(c bool) bool {
 	if !c {
@@ -54,7 +54,7 @@ func main() {
 	assert(ok)
 
 	if value := context.Eval(`
-		a = get_data(); 
+		a = get_data();
 		a.abc();
 	`); assert(value != nil) {
 		assert(value.IsInt())
