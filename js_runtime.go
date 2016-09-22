@@ -16,7 +16,7 @@ import (
 
 var defaultRuntime Runtime
 
-// JavaScript Runtime
+// Runtime describes JavaScript runtime
 type Runtime struct {
 	maxbytes       uint32
 	jsrt           *C.JSRuntime
@@ -37,7 +37,7 @@ type jswork struct {
 	resultChan chan int
 }
 
-// Initializes the JavaScript runtime.
+// NewRuntime initializes the JavaScript runtime.
 // @maxbytes Maximum number of allocated bytes after which garbage collection is run.
 func NewRuntime(maxbytes uint32) *Runtime {
 	C.JS_SetCStringsAreUTF8()
@@ -107,7 +107,7 @@ L:
 	C.JS_DestroyRuntime(r.jsrt)
 }
 
-// Exeucte the callback in runtime creator thread.
+// Use executes the callback in runtime creator thread.
 // Use this method to avoid Monkey internal call it many times.
 // See the benchmarks in "monkey_test.go".
 func (r *Runtime) Use(callback func()) {
@@ -124,7 +124,7 @@ func (r *Runtime) Use(callback func()) {
 	}
 }
 
-// Free by manual
+// Dispose is to manually free runtime
 func (r *Runtime) Dispose() {
 	if atomic.CompareAndSwapInt64(&r.disposed, 0, 1) {
 		r.closeChan <- 1
