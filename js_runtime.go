@@ -8,9 +8,10 @@ package monkey
 */
 import "C"
 import (
-	"github.com/chrisfarms/monkey/goid"
 	"runtime"
 	"sync/atomic"
+
+	"github.com/kirillDanshin/monkey/goid"
 )
 
 var defaultRuntime Runtime
