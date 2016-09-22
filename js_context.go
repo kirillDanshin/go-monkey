@@ -8,9 +8,13 @@ import (
 	"runtime"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/kirillDanshin/dlog"
 )
 
-// JavaScript Context
+var log = dlog.WithCaller{}
+
+// Context describes JavaScript context
 type Context struct {
 	rt            *Runtime
 	jscx          *C.JSContext
@@ -20,31 +24,47 @@ type Context struct {
 	disposed      int64
 }
 
+// NewContext initializes JavaScript context
 func (r *Runtime) NewContext() *Context {
 	var result *Context
-
+	log.Ln("r.use")
 	r.Use(func() {
+		log.Ln("new(context)")
 		c := new(Context)
+		log.Ln("setting runtime")
 		c.rt = r
 
+		log.Ln("setting context to C.JS_NewContext")
 		c.jscx = C.JS_NewContext(r.jsrt, 8192)
 		if c.jscx == nil {
 			return
 		}
 
+		log.Ln("setting options")
 		C.JS_SetOptions(c.jscx, C.JSOPTION_VAROBJFIX|C.JSOPTION_JIT|C.JSOPTION_METHODJIT)
+		log.Ln("setting version")
 		C.JS_SetVersion(c.jscx, C.JSVERSION_LATEST)
 
-		c.jsglobal = C.JS_NewCompartmentAndGlobalObject(c.jscx, &C.global_class, nil)
+		log.Ln("setting global object")
+		c.jsglobal = C.JS_NewCompartmentAndGlobalObject(c.jscx, unsafe.Pointer(&C.global_class), nil)
 
+		log.Ln("init standard classes on new context and global object")
 		if C.JS_InitStandardClasses(c.jscx, c.jsglobal) != C.JS_TRUE {
+			log.Ln("can't init standard classes")
+
 			return
 		}
 
 		// User defined function use this to find callback.
-		C.JS_SetContextPrivate(c.jscx, unsafe.Pointer(c))
+		log.Ln("set private context")
+		C.JS_SetContextPrivate(
+			c.jscx,
+			c,
+		)
 
+		log.Ln("set finalizer")
 		runtime.SetFinalizer(c, func(c *Context) {
+			log.Ln("calling Dispose")
 			c.Dispose()
 		})
 
@@ -54,7 +74,7 @@ func (r *Runtime) NewContext() *Context {
 	return result
 }
 
-// Free by manual
+// Dispose the context
 func (c *Context) Dispose() {
 	if atomic.CompareAndSwapInt64(&c.disposed, 0, 1) {
 		c.rt.ctxDisposeChan <- c
@@ -106,7 +126,7 @@ func (c *Context) SetErrorReporter(reporter ErrorReporter) {
 	c.errorReporter = reporter
 }
 
-// Evaluate JavaScript
+// Eval JavaScript
 // When you need high efficiency or run same script many times, please look at Compile() method.
 func (c *Context) Eval(script string) *Value {
 	var result *Value
@@ -299,18 +319,19 @@ func (c *Context) Runtime() *Runtime {
 
 type resumer struct {
 	ref C.jsrefcount
-	c *Context
+	c   *Context
 }
 
 func (r *resumer) Resume() {
 	C.JS_ResumeRequest(r.c.jscx, r.ref)
 }
+
 // To perform some long running processes outside of the current request
 // call Suspend() followed later by Resume()
 func (c *Context) Suspend() *resumer {
 	return &resumer{
 		ref: C.JS_SuspendRequest(c.jscx),
-		c: c,
+		c:   c,
 	}
 }
 
