@@ -6,6 +6,8 @@ You can use this package to embed JavaScript into your Go program.
 
 It has a rich API and can be freely used in any multi-goroutine Go program.
 
+Forked from github.com/chrisfarms/monkey.
+
 # Install
 
 You need install SpiderMonkey first.
