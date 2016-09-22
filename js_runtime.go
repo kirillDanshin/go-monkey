@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"sync/atomic"
 
-	"github.com/kirillDanshin/monkey/goid"
+	"github.com/kirillDanshin/go-monkey/goid"
 )
 
 var defaultRuntime Runtime
