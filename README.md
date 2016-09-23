@@ -32,6 +32,8 @@ And then install Monkey by "go get" command.
 go get github.com/kirillDanshin/monkey
 ```
 
+It requires Go 1.5\. If you want to use newer version, run your program with `GODEBUG=cgocheck=0`. I'm working on fix.
+
 # Performance
 
 There are some benchmark test in "monkey_test.go".
