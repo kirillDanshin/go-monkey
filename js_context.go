@@ -58,8 +58,8 @@ func (r *Runtime) NewContext() *Context {
 		// User defined function use this to find callback.
 		log.Ln("set private context")
 		C.JS_SetContextPrivate(
-			c.jscx,
-			c,
+			unsafe.Pointer(c.jscx),
+			unsafe.Pointer(c),
 		)
 
 		log.Ln("set finalizer")
@@ -153,6 +153,13 @@ type Script struct {
 
 // Free by manual
 func (s *Script) Dispose() {
+	if s == nil || s.disposed == 1 || &s.disposed == nil {
+		return
+	}
+	if _, ok := <-s.cx.rt.sptDisposeChan; !ok {
+		return
+	}
+	log.F("s: %+#v", s)
 	if atomic.CompareAndSwapInt64(&s.disposed, 0, 1) {
 		s.cx.rt.sptDisposeChan <- s
 	}

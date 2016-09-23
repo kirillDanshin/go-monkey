@@ -126,6 +126,12 @@ func (r *Runtime) Use(callback func()) {
 
 // Dispose is to manually free runtime
 func (r *Runtime) Dispose() {
+	if r == nil || r.disposed == 1 || &r.disposed == nil {
+		return
+	}
+	if _, ok := <-r.closeChan; !ok {
+		return
+	}
 	if atomic.CompareAndSwapInt64(&r.disposed, 0, 1) {
 		r.closeChan <- 1
 	}
